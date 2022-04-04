@@ -1,0 +1,111 @@
+from itertools import permutations
+
+def get_refs(group):
+    samples = sorted(config[group])
+    return expand('references/used/{group}/{sample}.fasta', group=group, sample=samples)
+
+def get_fasta(group, idx):
+    refs = get_refs(group)
+    return refs[int(idx)]
+
+def make_idxs():
+    for group in config:
+        refidxs = range(len(get_refs(group)))
+        for p1, p2 in permutations(refidxs, 2):
+            yield group, p1, p2
+
+rule list_files:
+    input:
+        lambda wc: get_refs(wc.group)
+    output:
+        temp('refcomp/{group}.genomes.txt')
+    shell:
+        'ls -d {input} > {output}'
+
+rule fastANI:
+    input:
+        rules.list_files.output
+    output:
+        'refcomp/{group}.fastani.txt'
+    conda:
+        'envs/fastani.yaml'
+    log:
+        'logs/{group}/refcomp.fastani.log'
+    threads:
+        8
+    shell:
+        'fastANI --ql {input} --rl {input} -o {output} 2> {log}'
+
+rule mummer_link_fasta:
+    input:
+        lambda wc: get_fasta(wc.group, wc.idx)
+    output:
+        'refcomp/mummer/{group}/seqs/{idx}.fa'
+    conda:
+        'envs/mummer.yaml'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+rule mummer_nucmer:
+    input:
+        seq1 = 'refcomp/mummer/{group}/seqs/{idx1}.fa',
+        seq2 = 'refcomp/mummer/{group}/seqs/{idx2}.fa'
+    output:
+        'refcomp/mummer/{group}/delta/{idx1}.{idx2}.delta'
+    params:
+        prefix = 'refcomp/mummer/{group}/delta/{idx1}.{idx2}'
+    conda:
+        'envs/mummer.yaml'
+    shell:
+        'nucmer -p {params.prefix} {input.seq1} {input.seq2}'
+
+rule mummer_dnadiff:
+    input:
+        delta = rules.mummer_nucmer.output,
+        seq1 = 'refcomp/mummer/{group}/seqs/{idx1}.fa',
+        seq2 = 'refcomp/mummer/{group}/seqs/{idx2}.fa'
+    output:
+        'refcomp/mummer/{group}/res/{idx1}.{idx2}.dnadiff/{idx1}.{idx2}.report'
+    params:
+        prefix = 'refcomp/mummer/{group}/res/{idx1}.{idx2}.dnadiff/{idx1}.{idx2}'
+    conda:
+        'envs/mummer.yaml'
+    shell:
+        'dnadiff -d {input.delta} -p {params.prefix}'
+
+rule mummer_showcoords:
+    input:
+        rules.mummer_nucmer.output
+    output:
+        'refcomp/mummer/{group}/res/{idx1}.{idx2}.coords'
+    conda:
+        'envs/mummer.yaml'
+    shell:
+        'show-coords -drlT {input} > {output}'
+
+def get_coords(wildcards):
+    group = wildcards.group
+    refidxs = range(len(get_refs(group)))
+    idx2, idx3 = zip(*permutations(refidxs, 2))
+    group = [group] * len(idx2)
+    return expand('refcomp/mummer/{group}/res/{idx1}.{idx2}.coords', zip, group=group, idx1=idx2, idx2=idx3)
+
+def get_dnadiff(wildcards):
+    group = wildcards.group
+    refidxs = range(len(get_refs(group)))
+    idx2, idx3 = zip(*permutations(refidxs, 2))
+    group = [group] * len(idx2)
+    return expand('refcomp/mummer/{group}/res/{idx1}.{idx2}.dnadiff/{idx1}.{idx2}.report', zip, group=group, idx1=idx2, idx2=idx3)
+
+rule mummer_merge:
+    input:
+        coors = get_coords,
+        dnadiff = get_dnadiff
+    output:
+        'refcomp/{group}.mummer.txt'
+    params:
+        refs = lambda wc: get_refs(wc.group)
+    conda:
+        'envs/mummer.yaml'
+    script:
+        'scripts/extract_mummer_dnadiff_report.py'

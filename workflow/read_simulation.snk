@@ -1,0 +1,265 @@
+import os
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+
+rule badread_make_ref:
+    input:
+        'references/used/{group}/{sample}.fasta'
+    output:
+        temp('reads/{group}/nanopore/{sample}.ref.fa.gz')
+    params:
+        circular = lambda wc: config[wc.group][wc.sample]['circular']
+    shell:
+        'awk \'{{ if ( $0 ~ /^>/ ) {{ print $0" circular={params.circular}" }} else {{ print $0 }} }}\' {input} | gzip > {output}'
+
+rule nanopore_badread_good:
+    input:
+        rules.badread_make_ref.output
+    output:
+        'reads/{group}/nanopore/{sample}.good.fastq.gz'
+    params:
+        quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
+        error_model = 'random',
+        identity = '95,100,2',
+        glitches = '0,0,0',
+        junk_reads = 0,
+        random_reads = 0,
+        chimeras = 0,
+        start_adapter_seq = '""',
+        end_adapter_seq = '""',
+        seed = 100
+    conda:
+        'envs/badread.yaml'
+    log:
+        'logs/{group}/badread.{sample}.good.log'
+    shell:
+        '(badread simulate --reference {input} --quantity {params.quantity} --error_model {params.error_model} --identity {params.identity} \
+            --glitches {params.glitches} --junk_reads {params.junk_reads} --random_reads {params.random_reads} \
+            --chimeras {params.chimeras} --start_adapter_seq {params.start_adapter_seq} --end_adapter_seq {params.end_adapter_seq} \
+            --seed {params.seed} | gzip > {output}) 2> {log}'
+
+rule nanopore_badread_bad:
+    input:
+        rules.badread_make_ref.output
+    output:
+        'reads/{group}/nanopore/{sample}.bad.fastq.gz'
+    params:
+        quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
+        error_model = 'random',
+        identity = '75,90,8',
+        glitches = '1000,100,100',
+        junk_reads = 5,
+        random_reads = 5,
+        chimeras = 10,
+        seed = 100
+    conda:
+        'envs/badread.yaml'
+    log:
+        'logs/{group}/badread.{sample}.good.log'
+    shell:
+        '(badread simulate --reference {input} --quantity {params.quantity} --error_model {params.error_model} --identity {params.identity} \
+            --glitches {params.glitches} --junk_reads {params.junk_reads} --random_reads {params.random_reads} --chimeras {params.chimeras} \
+            --seed {params.seed} | gzip > {output}) 2> {log}'
+
+rule nanopore_badread_readsid_correction:
+    input:
+        'reads/{group}/nanopore/{sample}.{quality}.fastq.gz'
+    output:
+        'reads/{group}/nanopore/{sample}.{quality}.rids_corrected.fastq.gz'
+    params:
+        sample = lambda wc: wc.sample
+    script:
+        'scripts/rename_fastqids.py'
+
+def get_nanopore(wildcards):
+    quality = config[wildcards.group][wildcards.sample]['nanopore']  
+    return os.path.join('reads', wildcards['group'], 'nanopore',
+        wildcards['sample'] + '.' + quality + '.rids_corrected.fastq.gz')
+
+rule link_nanopore:
+    input:
+        get_nanopore
+    output:
+        'reads/{group}/nanopore/{sample}.used.fastq.gz' 
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+def get_nanopore_reads(wildcards):
+    group = wildcards.group
+    samples = [sample for sample in config[group] if sample != 'internal']
+    return expand(
+        'reads/{group}/nanopore/{sample}.used.fastq.gz',
+        group=group, sample=samples
+        )
+
+rule merge_nanopore:
+    input:
+        get_nanopore_reads
+    output:
+        'reads/{group}/nanopore/merged.fastq.gz'
+    shell:
+        'cat {input} > {output}'
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+
+rule illumina_iss_prepare:
+    input:
+        reference = 'references/used/{group}/{sample}.fasta'
+    output:
+        fasta = temp('reads/{group}/illumina/{sample}.fasta'),
+        coverage = temp('reads/{group}/illumina/{sample}.coverage')
+    params:
+        cover = lambda wc: config[wc.group][wc.sample]['quantity']
+    run:
+        shell('echo ">{wildcards.sample}" > {output.fasta}')
+        shell('grep -v "^>" {input.reference} >> {output.fasta}')
+        shell('echo "{wildcards.sample}\t{params.cover}" > {output.coverage}')
+
+rule illumina_iss_run:
+    input:
+        fasta = rules.illumina_iss_prepare.output.fasta,
+        coverage = rules.illumina_iss_prepare.output.coverage
+    params :
+        outfile = "reads/{group}/illumina/{sample}",
+        seed = 100
+    output:
+        # Dummy output to allow snakemake to link rules
+        r1 = "reads/{group}/illumina/{sample}_R1.fastq.gz",
+        r2 = "reads/{group}/illumina/{sample}_R2.fastq.gz"
+    conda:
+        'envs/insilicoseq.yaml'
+    threads: 
+        8
+    log:
+        'logs/{group}/iss.{sample}.log'
+    shell:
+        'iss generate --genomes {input.fasta} -D {input.coverage} \
+        --output {params.outfile} --seed {params.seed} --model HiSeq \
+        --compress --cpus {threads} 2> {log}'
+
+def get_illumina_short_r1(wildcards):
+    group = wildcards.group
+    samples = [sample for sample in config[group] if sample != 'internal']
+    return expand(
+        'reads/{group}/illumina/{sample}_R1.fastq.gz',
+        group=group, sample=samples
+        )
+
+rule merge_short_r1:
+    input:
+        get_illumina_short_r1
+    output:
+        'reads/{group}/illumina/merged/R1.fastq.gz'
+    shell:
+        'cat {input} > {output}'
+
+def get_illumina_short_r2(wildcards):
+    group = wildcards.group
+    samples = [sample for sample in config[group] if sample != 'internal']
+    return expand(
+        'reads/{group}/illumina/{sample}_R2.fastq.gz',
+        group=group, sample=samples
+        )
+
+rule merge_short_r2:
+    input:
+        get_illumina_short_r2
+    output:
+        'reads/{group}/illumina/merged/R2.fastq.gz'
+    shell:
+        'cat {input} > {output}'
+
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+
+rule pacbio_pbsim_prepare:
+    input:
+        'references/used/{group}/{sample}.fasta'
+    output:
+        fasta = temp('reads/{group}/pacbio/{sample}.fasta')
+    run:
+        shell('echo ">{wildcards.sample}" > {output.fasta}')
+        shell('grep -v "^>" {input.reference} >> {output.fasta}')
+
+rule pacbio_pbsim_ccs:
+    input:
+        reference = 'reads/{group}/pacbio/{sample}.fasta',
+        model = '/home/ubuntu/pbsim/PBSIM-PacBio-Simulator/data/model_qc_ccs'
+    output:
+        fastq = 'reads/{group}/pacbio/{sample}_ccs_0001.fastq'
+    params:
+        cover = lambda wc: config[wc.group][wc.sample]['pacbio']['quantity'],
+        prefix = 'reads/{group}/pacbio/{sample}_ccs',
+        seed = 100
+    conda:
+        'envs/pbsim.yaml'
+    shell:
+        'pbsim --data-type CCS --seed {params.seed} --depth {params.cover} --model_qc {input.model} --prefix {params.prefix} {input.reference}'
+
+rule pacbio_pbsim_ccs_comp:
+    input:
+        'reads/{group}/pacbio/{sample}_ccs_0001.fastq'
+    output:
+        'reads/{group}/pacbio/{sample}_ccs_0001.fastq.gz'
+    threads:
+        4
+    shell:
+        'pigz -9 -p {threads} {input}'
+
+def get_pbsim_reads_css(wildcards):
+    group = wildcards.group
+    samples = [sample for sample in config[group] if sample != 'internal']
+    return expand(
+        'reads/{group}/pacbio/{sample}_ccs_0001.fastq.gz',
+        group=group, sample=samples
+        )
+
+rule merge_pacbio_pbsim_ccs:
+    input:
+        get_pbsim_reads_css
+    output:
+        'reads/{group}/merged/pacbio_ccs.fastq.gz'
+    shell:
+        'cat {input} > {output}'
+
+
+rule pacbio_pbsim_clr:
+    input:
+        reference = 'reads/{group}/pacbio/{sample}.fasta',
+        model = '/home/ubuntu/pbsim/PBSIM-PacBio-Simulator/data/model_qc_clr'
+    output:
+        fastq = 'reads/{group}/pacbio/{sample}_clr_0001.fastq'
+    params:
+        cover = lambda wc: config[wc.group][wc.sample]['pacbio']['quantity'],
+        prefix = 'reads/{group}/pacbio/{sample}_clr',
+        seed = 100
+    conda:
+        'envs/pbsim.yaml'
+    shell:
+        'pbsim --data-type CLR --seed {params.seed} --depth {params.cover} --model_qc {input.model} --prefix {params.prefix} {input.reference}'
+
+rule pacbio_pbsim_clr_comp:
+    input:
+        rules.pacbio_pbsim_clr.output
+    output:
+        'reads/{group}/pacbio/{sample}_clr_0001.fastq.gz'
+    threads:
+        4
+    shell:
+        'pigz -9 -p {threads} {input}'
+
+def get_pbsim_reads_clr(wildcards):
+    group = wildcards.group
+    samples = [sample for sample in config[group] if sample != 'internal']
+    return expand(
+        'reads/{group}/pacbio/{sample}_clr_0001.fastq.gz',
+        group=group, sample=samples
+        )
+
+rule merge_pacbio_pbsim_clr:
+    input:
+        get_pbsim_reads_clr
+    output:
+        'reads/{group}/pacbio/merged_clr.fastq.gz'
+    shell:
+        'cat {input} > {output}'

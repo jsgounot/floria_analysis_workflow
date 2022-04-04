@@ -1,0 +1,79 @@
+{
+	"ecoli": {
+			"ecoli_k12": {
+				"ncbinuc": "NC_000913.3",
+				"mapping_ref": "True",
+				"quantity": 50,
+				"circular": "true",
+				"nanopore": "good"
+			},
+			"ecoli_h5": {
+				"ncbinuc": "CP010169.1",
+				"quantity": 10,
+				"circular": "true",
+				"nanopore": "good"
+			},
+			"ecoli_O157": {
+				"ncbinuc": "NC_002695.2",
+				"quantity": 70,
+				"circular": "true",
+				"nanopore": "good"
+			},
+			"ecoli_w": {
+				"ncbinuc": "NC_017635.1",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "good"
+			}
+		},
+
+	"ecoli_k12_same": {
+			"ecoli_k12": {
+				"ncbinuc": "NC_000913.3",
+				"mapping_ref": "True",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "good"
+			},
+			"ecoli_h5": {
+				"ncbinuc": "CP010169.1",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "good"
+			},
+			"ecoli_O157": {
+				"ncbinuc": "NC_002695.2",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "good"
+			},
+			"ecoli_w": {
+				"ncbinuc": "NC_017635.1",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "good"
+			}
+		},
+
+	"klebsiella": {
+			"kleb_MN": {
+				"ncbiasbly": "ASM1990034v1",
+				"mapping_ref": "True",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "good"
+			},
+			"kleb_NC": {
+				"ncbiasbly": "ASM1990030v1",
+				"quantity": 70,
+				"circular": "true",
+				"nanopore": "good"
+			},
+			"kleb_PA": {
+				"ncbiasbly": "ASM1990032v1",
+				"quantity": 10,
+				"circular": "true",
+				"nanopore": "good"
+			}
+		}
+}

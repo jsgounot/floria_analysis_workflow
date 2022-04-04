@@ -1,0 +1,44 @@
+from pathlib import Path
+
+rule download_ncbinuc:
+    output:
+        'references/download/{group}/ncbinuc_{ncbiid}.fasta'
+    conda:
+        'envs/entrez.yaml'
+    resources:
+        ncbi_load=1
+    shell:
+        'efetch -db nucleotide -id "{wildcards.ncbiid}" -mode text -format fasta > {output} && [[ -s {output} ]]'
+
+rule download_ncbiasbly:
+    output:
+        'references/download/{group}/ncbiasbly_{ncbiid}.fasta'
+    conda:
+        'envs/entrez.yaml'
+    resources:
+        ncbi_load=1
+    shell:
+        'esearch -db assembly -query "{wildcards.ncbiid}" | elink -target nucleotide -name assembly_nuccore_refseq | efetch -format fasta > {output} && [[ -s {output} ]]'
+
+def get_ref(wildcards):
+    group, sample = wildcards.group, wildcards.sample   
+    scon = config[group][sample]
+
+    if 'refpath' in scon:
+        return str(Path(scon['refpath']).relative())
+    elif 'ncbiasbly' in scon:
+        ncbiid = scon['ncbiasbly']
+        return f'references/download/{group}/ncbiasbly_{ncbiid}.fasta'
+    elif 'ncbinuc' in scon:
+        ncbiid = scon['ncbinuc']
+        return f'references/download/{group}/ncbinuc_{ncbiid}.fasta'
+    else:
+        raise Exception(f'Neither a reference file or a NCBI ID is provided for sample {sample} in group {group}')
+
+rule link_fasta:
+    input:
+        get_ref
+    output:
+        'references/used/{group}/{sample}.fasta'
+    shell:
+        'ln -s $(pwd)/{input} {output}'

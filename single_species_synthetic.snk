@@ -1,0 +1,82 @@
+import os
+from pathlib import Path
+
+# snakemake -s single_species_synthetic.snk --configfile config.json --use-conda --cores 1 --resources ncbi_load=1
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+
+GROUPS = set(config)
+SUBGROUP = [
+    'glopp.hybrid.longshot.nanoprep1', 'glopp.hybrid.lofreq.nanoprep1', 
+    'glopp.nanopore.longshot.nanoprep1', # 'glopp.nanopore.lofreq.nanoprep1',
+    'strainberry.nanopore', 
+    #'glopp.illumina.longshot.abyss', 'glopp.illumina.lofreq.abyss'
+    ]
+
+
+#GROUPS = [list(GROUPS)[0]]
+
+rule all:
+    input:
+        expand('refcomp/{group}.fastani.txt', group=GROUPS),
+        expand('refcomp/{group}.mummer.txt', group=GROUPS),
+        expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
+        #expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
+
+        #'phasing/assemblies/ecoli/glopp.hybrid.longshot.nanoprep1.fa.gz'        
+
+        #expand('phasing/assemblies/{group}/glopp.hybrid.longshot.nanoprep1.fa.gz', group=GROUPS),
+        #expand('phasing/assemblies/{group}/glopp.hybrid.lofreq.nanoprep1.fa.gz', group=GROUPS),
+        #expand('phasing/assemblies/{group}/glopp.nanopore.longshot.nanoprep1.fa.gz', group=GROUPS),
+        #expand('phasing/assemblies/{group}/strainberry.nanopore.fa.gz', group=GROUPS)
+        
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+
+module rg:
+    snakefile: 'workflow/reference_genomes.snk'
+    config: config
+
+use rule * from rg as rg_*
+
+module rc:
+    snakefile: "workflow/references_comparison.snk"
+    config: config
+
+use rule * from rc as rc_*
+
+module rs:
+    snakefile: "workflow/read_simulation.snk"
+    config: config
+
+use rule * from rs as rs_*
+
+module rm:
+    snakefile: "workflow/read_mapping.snk"
+    config: config
+
+use rule * from rm as rm_*
+
+module vc:
+    snakefile: "workflow/variants_calling.snk"
+    config: config
+
+use rule * from vc as vc_*
+
+module sb:
+    snakefile: "workflow/strainberry.snk"
+    config: config
+
+use rule * from sb as sb_*
+
+module gl:
+    snakefile: "workflow/glopp.snk"
+    config: config
+
+use rule * from gl as gl_*
+
+module as:
+    snakefile: "workflow/assemblies_stats.snk"
+    config: config
+
+use rule * from as as as_*

@@ -1,0 +1,48 @@
+from scripts.utilities import get_mapping_ref
+
+rule link_fasta:
+    input:
+        lambda wc: get_mapping_ref(wc, config)
+    output:
+        'vcalling/{group}/ref.fasta'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+rule fasta_index:
+    input:
+        'vcalling/{group}/ref.fasta'
+    output:
+        'vcalling/{group}/ref.fasta.fai'
+    conda:
+        'envs/minimap2.yaml'
+    shell:
+        'samtools faidx {input}'
+
+rule lofreq:
+    input:
+        fasta = 'vcalling/{group}/ref.fasta',
+        fai   = 'vcalling/{group}/ref.fasta.fai',
+        aln   = 'mapping/{group}/merged.{alnid}.bam'
+    output:
+        'vcalling/{group}/{alnid}.lofreq.vcf'
+    conda:
+        'envs/lofreq.yaml'
+    log:
+        'logs/{group}/vcalling.{alnid}.lofreq.log'
+    shell:
+        'lofreq call -f {input.fasta} -o {output} {input.aln} --verbose 2> {log}'
+
+rule longshot:
+    input:
+        fasta   = 'vcalling/{group}/ref.fasta',
+        fai     = 'vcalling/{group}/ref.fasta.fai',
+        aln     = 'mapping/{group}/merged.{alnid}.bam',
+        aln_bai = 'mapping/{group}/merged.{alnid}.bam.bai'
+    output:
+        'vcalling/{group}/{alnid}.longshot.vcf'
+    conda:
+        'envs/longshot.yaml'
+    log:
+        'logs/{group}/vcalling.{alnid}.longshot.log'
+    shell:
+        'longshot --ref {input.fasta} --out {output} --bam {input.aln} -n 2> {log}'
