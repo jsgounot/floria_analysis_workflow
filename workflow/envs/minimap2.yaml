@@ -1,0 +1,29 @@
+name: minimap2
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=4.5=1_gnu
+  - bzip2=1.0.8=h7b6447c_0
+  - c-ares=1.18.1=h7f8727e_0
+  - ca-certificates=2021.10.26=h06a4308_2
+  - htslib=1.13=h9093b5e_0
+  - k8=0.2.5=h9a82719_1
+  - krb5=1.19.2=hac12032_0
+  - libcurl=7.80.0=h0b77cf5_0
+  - libdeflate=1.7=h27cfd23_5
+  - libedit=3.1.20210714=h7f8727e_0
+  - libev=4.33=h7f8727e_1
+  - libgcc-ng=9.3.0=h5101ec6_17
+  - libgomp=9.3.0=h5101ec6_17
+  - libnghttp2=1.46.0=hce63b2e_0
+  - libssh2=1.9.0=h1ba5d50_1
+  - libstdcxx-ng=9.3.0=hd4cf53a_17
+  - minimap2=2.21=h5bf99c6_0
+  - ncurses=6.2=he6710b0_1
+  - openssl=1.1.1m=h7f8727e_0
+  - samtools=1.13=h8c37831_0
+  - xz=5.2.5=h7b6447c_0
+  - zlib=1.2.11=h7f8727e_4
+prefix: /home/ubuntu/miniconda3/envs/minimap2

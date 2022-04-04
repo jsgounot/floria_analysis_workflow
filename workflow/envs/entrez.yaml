@@ -1,0 +1,7 @@
+name: entrez
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - entrez-direct=16.2=he881be0_0
+prefix: /home/ubuntu/miniconda3/envs/entrez

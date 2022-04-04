@@ -1,0 +1,12 @@
+name: pbsim
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=4.5=1_gnu
+  - libgcc-ng=9.3.0=h5101ec6_17
+  - libgomp=9.3.0=h5101ec6_17
+  - libstdcxx-ng=9.3.0=hd4cf53a_17
+  - pbsim=1.0.3=h7d875b9_4
+prefix: /home/ubuntu/miniconda3/envs/pbsim
