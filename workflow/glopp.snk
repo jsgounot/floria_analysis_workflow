@@ -95,7 +95,7 @@ rule glopp_hybrid:
     params:
         executable = GLOPP
     shell:
-        '{params.executable} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -H {input.short} -X -e 0.01 > {log}'
+        '{params.executable} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -H {input.short} --reassign-short -X -e 0.01 > {log}'
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Assembly

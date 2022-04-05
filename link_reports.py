@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2022-04-04 10:11:10
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2022-04-04 10:57:12
+# @Last Modified time: 2022-04-04 15:07:37
 
 import glob, os
 from pathlib import Path
@@ -36,3 +36,16 @@ for fname in fnames:
 	fname = Path(fname).absolute()
 
 	if not os.path.isfile(outfile): os.symlink(fname, outfile)
+
+# ----------------------------------------------------------------------
+
+fnames = 'stats/assemblies/*/*/mummer/circos'
+fnames = glob.glob(fnames)
+
+for fname in fnames:
+	group = bname(dname(dname(dname(fname)))) 
+	fid = bname(dname(dname(fname)))
+	outfile = f'reports/circos/{group}.{fid}'
+
+	fname = Path(fname).absolute()
+	if not os.path.exists(outfile): os.symlink(fname, outfile)
