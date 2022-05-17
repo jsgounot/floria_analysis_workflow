@@ -102,70 +102,48 @@ rule merge_nanopore:
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
-rule illumina_iss_prepare:
+rule illumina_art_run:
     input:
-        reference = 'references/used/{group}/{sample}.fasta'
+        'references/used/{group}/{sample}.fasta'
     output:
-        fasta = temp('reads/{group}/illumina/{sample}.fasta'),
-        coverage = temp('reads/{group}/illumina/{sample}.coverage')
+        r1 = 'reads/{group}/illumina/{sample}_R1.fq',
+        r2 = 'reads/{group}/illumina/{sample}_R2.fq'
     params:
-        cover = lambda wc: config[wc.group][wc.sample]['quantity']
-    run:
-        shell('echo ">{wildcards.sample}" > {output.fasta}')
-        shell('grep -v "^>" {input.reference} >> {output.fasta}')
-        shell('echo "{wildcards.sample}\t{params.cover}" > {output.coverage}')
-
-rule illumina_iss_run:
-    input:
-        fasta = rules.illumina_iss_prepare.output.fasta,
-        coverage = rules.illumina_iss_prepare.output.coverage
-    params :
-        outfile = "reads/{group}/illumina/{sample}",
-        seed = 100
-    output:
-        # Dummy output to allow snakemake to link rules
-        r1 = "reads/{group}/illumina/{sample}_R1.fastq.gz",
-        r2 = "reads/{group}/illumina/{sample}_R2.fastq.gz"
+        instrument = 'HS25',
+        seed = 100,
+        length = 150,
+        meansize = 300,
+        std = 10,
+        coverage = lambda wc: str(config[wc.group][wc.sample]['quantity']),
+        outname = 'reads/{group}/illumina/{sample}_R'
     conda:
-        'envs/insilicoseq.yaml'
-    threads: 
-        8
+        'envs/art.yaml'
     log:
-        'logs/{group}/iss.{sample}.log'
+        'logs/{group}/art_illumina.{sample}.log'
     shell:
-        'iss generate --genomes {input.fasta} -D {input.coverage} \
-        --output {params.outfile} --seed {params.seed} --model HiSeq \
-        --compress --cpus {threads} 2> {log}'
+        'art_illumina -ss {params.instrument} -i {input} -p -l {params.length} -f {params.coverage} -m {params.meansize} -s {params.std} -o {params.outname} -d {wildcards.sample} -na -rs {params.seed} > {log}'
 
-def get_illumina_short_r1(wildcards):
+rule compress_read:
+    input:
+        'reads/{group}/illumina/{sample}_{ridx}.fq'
+    output:
+        'reads/{group}/illumina/{sample}_{ridx}.fq.gz'
+    shell:
+        'gzip {input}'
+
+def get_illumina_reads(wildcards):
     group = wildcards.group
-    samples = [sample for sample in config[group] if sample != 'internal']
+    samples = [sample for sample in config[group]]
     return expand(
-        'reads/{group}/illumina/{sample}_R1.fastq.gz',
-        group=group, sample=samples
+        'reads/{group}/illumina/{sample}_{ridx}.fq.gz',
+        group=group, sample=samples, ridx=wildcards.ridx
         )
 
-rule merge_short_r1:
+rule merge_reads:
     input:
-        get_illumina_short_r1
+        get_illumina_reads
     output:
-        'reads/{group}/illumina/merged/R1.fastq.gz'
-    shell:
-        'cat {input} > {output}'
-
-def get_illumina_short_r2(wildcards):
-    group = wildcards.group
-    samples = [sample for sample in config[group] if sample != 'internal']
-    return expand(
-        'reads/{group}/illumina/{sample}_R2.fastq.gz',
-        group=group, sample=samples
-        )
-
-rule merge_short_r2:
-    input:
-        get_illumina_short_r2
-    output:
-        'reads/{group}/illumina/merged/R2.fastq.gz'
+        'reads/{group}/illumina/merged/{ridx}.fastq.gz'
     shell:
         'cat {input} > {output}'
 

@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2022-03-28 15:58:48
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2022-03-28 21:14:39
+# @Last Modified time: 2022-05-12 12:08:15
 
 '''
 I first wanted to include this at the end of assemblies_stats_analyse_nucmer.py script,
@@ -14,15 +14,19 @@ from Bio import SeqIO
 
 def main(table, query, idx, outfile):
     df = pd.read_csv(table, sep='\t')
+
     sdf = df[(df['fidx'].astype(str) == str(idx)) & (df['best'])]
-    ids = set(sdf['Q_NAME'])
+    ids = set(sdf['Q_NAME'].astype(str))
     assert ids
 
     fdata = SeqIO.parse(query, 'fasta')
     with open(outfile, 'w') as f:
         frec = sorted((record for record in fdata if record.id in ids),
             key = lambda rec: rec.id)
-        assert len(frec) == len(ids)
+
+        if not len(frec) == len(ids):
+            raise Exception(f'Error: Unable to fetch all contig found in nucmer results ({len(frec)} vs {len(ids)})')
+
         SeqIO.write(frec, f, 'fasta')
 
 table = snakemake.input[0]

@@ -1,48 +1,28 @@
-from scripts.utilities import get_mapping_ref
-
-rule link_fasta:
-    input:
-        lambda wc: get_mapping_ref(wc, config)
-    output:
-        'vcalling/{group}/ref.fasta'
-    shell:
-        'ln -s $(pwd)/{input} {output}'
-
-rule fasta_index:
-    input:
-        'vcalling/{group}/ref.fasta'
-    output:
-        'vcalling/{group}/ref.fasta.fai'
-    conda:
-        'envs/minimap2.yaml'
-    shell:
-        'samtools faidx {input}'
-
 rule lofreq:
     input:
-        fasta = 'vcalling/{group}/ref.fasta',
-        fai   = 'vcalling/{group}/ref.fasta.fai',
-        aln   = 'mapping/{group}/merged.{alnid}.bam'
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        aln   = 'mapping/{group}/{refori}.{readtype}.bam'
     output:
-        'vcalling/{group}/{alnid}.lofreq.vcf'
+        'vcalling/{group}/{refori}.{readtype}.lofreq.vcf'
     conda:
         'envs/lofreq.yaml'
     log:
-        'logs/{group}/vcalling.{alnid}.lofreq.log'
+        'logs/{group}/vcalling.{refori}.{readtype}.lofreq.log'
     shell:
         'lofreq call -f {input.fasta} -o {output} {input.aln} --verbose 2> {log}'
 
 rule longshot:
     input:
-        fasta   = 'vcalling/{group}/ref.fasta',
-        fai     = 'vcalling/{group}/ref.fasta.fai',
-        aln     = 'mapping/{group}/merged.{alnid}.bam',
-        aln_bai = 'mapping/{group}/merged.{alnid}.bam.bai'
+        fasta   = 'references/used/{group}/refmap/{refori}.fa',
+        fai     = 'references/used/{group}/refmap/{refori}.fa.fai',
+        aln     = 'mapping/{group}/{refori}.{readtype}.bam',
+        aln_bai = 'mapping/{group}/{refori}.{readtype}.bam.bai'
     output:
-        'vcalling/{group}/{alnid}.longshot.vcf'
+        'vcalling/{group}/{refori}.{readtype}.longshot.vcf'
     conda:
         'envs/longshot.yaml'
     log:
-        'logs/{group}/vcalling.{alnid}.longshot.log'
+        'logs/{group}/vcalling.{refori}.{readtype}.longshot.log'
     shell:
         'longshot --ref {input.fasta} --out {output} --bam {input.aln} -n 2> {log}'

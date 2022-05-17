@@ -2,34 +2,53 @@ import os
 from pathlib import Path
 
 # snakemake -s single_species_synthetic.snk --configfile config.json --use-conda --cores 1 --resources ncbi_load=1
+# snakemake -s single_species_synthetic.snk --configfile synthetic.json --use-conda --cores 2 --resources ncbi_load=1 --attempt 3
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
 GROUPS = set(config)
 SUBGROUP = [
-    'glopp.hybrid.longshot.nanoprep1', 'glopp.hybrid.lofreq.nanoprep1', 
-    'glopp.nanopore.longshot.nanoprep1', # 'glopp.nanopore.lofreq.nanoprep1',
-    'strainberry.nanopore', 
-    #'glopp.illumina.longshot.abyss', 'glopp.illumina.lofreq.abyss'
+    'glopp.inpref.hybrid.longshot.nanoprep1',
+    'glopp.inpref.hybrid.lofreq.nanoprep1',
+    'glopp.inpref.nanopore.longshot.nanoprep1',
+
+    'glopp.operams.hybrid.longshot.nanoprep1',
+    'glopp.operams.hybrid.lofreq.nanoprep1',
+
+    'inpref.strainberry.nanopore',
+    'operams.strainberry.nanopore',
+
+    'strainxpress.regular'
     ]
 
 
-#GROUPS = [list(GROUPS)[0]]
+#GROUPS = [sorted(GROUPS)]
+
+GROUPS = ['ecoli']
 
 rule all:
     input:
-        expand('refcomp/{group}.fastani.txt', group=GROUPS),
-        expand('refcomp/{group}.mummer.txt', group=GROUPS),
         expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
+
+        #'phasing/assemblies/ecoli/glopp.inpref.hybrid.longshot.nanoprep1.fa.gz',
+        #'stats/assemblies/ecoli/glopp.inpref.hybrid.longshot.nanoprep1/mummer/circos/done.empty',
+
+        #'temp/assemblies/ecoli/strainxpress.regular.fa',
+        #'assembly/operams/ecoli/contigs.polished.fasta'
+
+        #expand('refcomp/{group}.fastani.txt', group=GROUPS),
+        #expand('refcomp/{group}.mummer.txt', group=GROUPS),
+
+        #expand('reads/{group}/illumina/merged/R1.fastq.gz', group=GROUPS),
+        #expand('reads/{group}/illumina/merged/R2.fastq.gz', group=GROUPS)
         #expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
-
-        #'phasing/assemblies/ecoli/glopp.hybrid.longshot.nanoprep1.fa.gz'        
-
+        #expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
+        #'phasing/assemblies/ecoli/glopp.hybrid.longshot.nanoprep1.fa.gz'
         #expand('phasing/assemblies/{group}/glopp.hybrid.longshot.nanoprep1.fa.gz', group=GROUPS),
         #expand('phasing/assemblies/{group}/glopp.hybrid.lofreq.nanoprep1.fa.gz', group=GROUPS),
         #expand('phasing/assemblies/{group}/glopp.nanopore.longshot.nanoprep1.fa.gz', group=GROUPS),
         #expand('phasing/assemblies/{group}/strainberry.nanopore.fa.gz', group=GROUPS)
-        
+
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -57,11 +76,23 @@ module rm:
 
 use rule * from rm as rm_*
 
+module oms:
+    snakefile: "workflow/opera_assembly.snk"
+    config: config
+
+use rule * from oms as oms_*
+
 module vc:
     snakefile: "workflow/variants_calling.snk"
     config: config
 
 use rule * from vc as vc_*
+
+module sxp:
+    snakefile: "workflow/strainxpress.snk"
+    config: config
+
+use rule * from sxp as sxp_*
 
 module sb:
     snakefile: "workflow/strainberry.snk"
@@ -76,7 +107,7 @@ module gl:
 use rule * from gl as gl_*
 
 module as:
-    snakefile: "workflow/assemblies_stats.snk"
+    snakefile: "workflow/haplotype_stats.snk"
     config: config
 
 use rule * from as as as_*

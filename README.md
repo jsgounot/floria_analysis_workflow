@@ -12,12 +12,6 @@ Most of the softwares used in the pipeline will be automatically downloaded by s
 
 Pipeline should take around ~ 24h with 16 CPUs. Runtime is not linear to CPUs count since some part of the pipeline such are variant callers are not multi-threaded.
 
-## Hardcoded options
-
-Because all potential combinations cannot be informed in file paths, some options were hardcoded for this workflow but might not fit perfectly with other data. For example, the estimated Glopp error rate is uniquely defined for each mode, you will need to modify the snakemake file to change these values.
-
-**TODO**: Provide a list of hardcoded options.
-
 ## Synthetic dataset
 
 The synthetic dataset contains 3 experiments which can be found in `synthetic.json`. With provided config file, sequences will be automatically downloaded from NCBI.
@@ -35,3 +29,17 @@ snakemake -s single_species_synthetic.snk --configfile synthetic.json --use-cond
 * <u>refpath</u>: a path to a local file.
 * <u>ncbiasbly</u>: a NCBI assembly identifier. Note that one assembly can contains multiple sequences (contigs, plasmids) which will be concatenated in the process.
 * <u>ncbinuc</u>: A single NCBI identifier like a RefSeq identifier. Ideal if you just want one contig.
+
+## Understanding results file path naming
+
+One phasing is the combination of multiple software with different options. In snakemake, this variations are directly hardcoded in the result directory path, as a requiered input for the `all` rule of the main snakemake script. 
+
+For example, `stats/assemblies/ecoli/glopp.inpref.hybrid.longshot.nanoprep1/mummer/circos/done.empty` contains `glopp.inpref.hybrid.longshot.nanoprep1`. This indicates that we used glopp as phasing algorithm, with input reference (`inpref`), a hybrid phasing based on longshot mapping and a post-phasing assembly method called nanoprep1.
+
+Another example could be: `strainxpress.fast` which simply mean the phasing is done by strainxpress with the fast option. Strainxpress does not use mapping and variant calling to run.
+
+One last example could be `operams.strainberry.nanopore`, which means strainberry with nanopore reads, based on a mapping with operams assemblies (and not the mapping reference from the config file).
+
+## Hardcoded options
+
+Because all potential combinations cannot be informed in file paths, some options were hardcoded for this workflow but might not fit perfectly with other data. For example, the estimated Glopp error rate is uniquely defined for each mode, you will need to modify the snakemake file to change these values.

@@ -2,14 +2,14 @@ from scripts.utilities import get_mapping_ref
 
 rule minimap2_pacbio_clr:
     input:
-        fasta = lambda wc: get_mapping_ref(wc, config),
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
         lr = 'reads/{group}/pacbio/merged_clr.fastq.gz'
     output:
-        'mapping/{group}/merged.pacbio_clr.bam'
+        'mapping/{group}/{refori}.pacbio_clr.bam'
     conda:
         'envs/minimap2.yaml'
     log:
-        'logs/{group}/minimap2.pacbio.log'
+        'logs/{group}/minimap2.{refori}.pacbio.log'
     threads:
         16
     shell:
@@ -17,14 +17,14 @@ rule minimap2_pacbio_clr:
 
 rule minimap2_nanopore:
     input:
-        fasta = lambda wc: get_mapping_ref(wc, config),
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
         lr = 'reads/{group}/nanopore/merged.fastq.gz'
     output:
-        'mapping/{group}/merged.nanopore.bam'
+        'mapping/{group}/{refori}.nanopore.bam'
     conda:
         'envs/minimap2.yaml'
     log:
-        'logs/{group}/minimap2.nanopore.log'
+        'logs/{group}/minimap2.{refori}.nanopore.log'
     threads:
         16
     shell:
@@ -32,15 +32,15 @@ rule minimap2_nanopore:
 
 rule minimap2_illumina:
     input:
-        fasta = lambda wc: get_mapping_ref(wc, config),
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
         sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
         sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz',
     output:
-        'mapping/{group}/merged.illumina.bam'
+        'mapping/{group}/{refori}.illumina.bam'
     conda:
         'envs/minimap2.yaml'
     log:
-        'logs/{group}/minimap2.illumina.log'
+        'logs/{group}/minimap2.{refori}.illumina.log'
     threads:
         16
     shell:
@@ -48,9 +48,9 @@ rule minimap2_illumina:
 
 rule index_bam:
     input:
-        'mapping/{group}/{name}.{kind}.bam'
+        'mapping/{group}/{refori}.{kind}.bam'
     output:
-        'mapping/{group}/{name}.{kind}.bam.bai'
+        'mapping/{group}/{refori}.{kind}.bam.bai'
     conda:
         'envs/minimap2.yaml'
     shell:

@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+from scripts.utilities import get_mapping_ref, get_ref
 
 rule download_ncbinuc:
     output:
@@ -20,25 +22,28 @@ rule download_ncbiasbly:
     shell:
         'esearch -db assembly -query "{wildcards.ncbiid}" | elink -target nucleotide -name assembly_nuccore_refseq | efetch -format fasta > {output} && [[ -s {output} ]]'
 
-def get_ref(wildcards):
-    group, sample = wildcards.group, wildcards.sample   
-    scon = config[group][sample]
-
-    if 'refpath' in scon:
-        return str(Path(scon['refpath']).relative())
-    elif 'ncbiasbly' in scon:
-        ncbiid = scon['ncbiasbly']
-        return f'references/download/{group}/ncbiasbly_{ncbiid}.fasta'
-    elif 'ncbinuc' in scon:
-        ncbiid = scon['ncbinuc']
-        return f'references/download/{group}/ncbinuc_{ncbiid}.fasta'
-    else:
-        raise Exception(f'Neither a reference file or a NCBI ID is provided for sample {sample} in group {group}')
-
 rule link_fasta:
     input:
-        get_ref
+        lambda wc: get_ref(wc, config)
     output:
-        'references/used/{group}/{sample}.fasta'
+        'references/used/{group}/sample/{sample}.fasta'
     shell:
         'ln -s $(pwd)/{input} {output}'
+
+rule refmap:
+    input:
+        lambda wc: get_mapping_ref(wc, config)
+    output:
+        'references/used/{group}/refmap/inpref.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+rule fasta_index:
+    input:
+        'references/used/{group}/refmap/{refori}.fa'
+    output:
+        'references/used/{group}/refmap/{refori}.fa.fai'
+    conda:
+        'envs/minimap2.yaml'
+    shell:
+        'samtools faidx {input}'

@@ -2,55 +2,37 @@ from scripts.utilities import get_mapping_ref
 
 GLOPP = '~/glopp/glopp/target/release/glopp'
 
-rule link_fasta:
-    input:
-        fasta = lambda wc: get_mapping_ref(wc, config)
-    output:
-        'phasing/glopp/{group}/ref.fasta'
-    shell:
-        'ln -s $(pwd)/{input} {output}'
-
-rule fasta_index:
-    input:
-        fasta = 'phasing/glopp/{group}/ref.fasta'
-    output:
-        'phasing/glopp/{group}/ref.fasta.fai'
-    conda:
-        'envs/minimap2.yaml'
-    shell:
-        'samtools faidx {input.fasta}'
-
 rule link_vcf:
     input:
-        'vcalling/{group}/{alnid}.{vcaller}.vcf'
+        'vcalling/{group}/{refori}.{readtype}.{vcaller}.vcf'
     output:
-        'phasing/glopp/{group}/{alnid}.{vcaller}.vcf'
+        'phasing/glopp/{group}/{refori}.{readtype}.{vcaller}.vcf'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
 rule add_header:
     input:
-        'phasing/glopp/{group}/{alnid}.{vcaller}.vcf'
+        'phasing/glopp/{group}/{refori}.{readtype}.{vcaller}.vcf'
     output:
-        'phasing/glopp/{group}/{alnid}.{vcaller}.vcfc_header'
+        'phasing/glopp/{group}/{refori}.{readtype}.{vcaller}.vcfc_header'
     script:
         'scripts/glopp_vcf_header.py'
 
 rule glopp_illumina:
     input:
-        fasta = rules.link_fasta.output,
-        fai   = rules.fasta_index.output,
-        bam   = 'mapping/{group}/merged.illumina.bam',
-        bai   = 'mapping/{group}/merged.illumina.bam.bai',
-        vcf   = 'phasing/glopp/{group}/illumina.{vcaller}.vcfc_header'
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.illumina.bam',
+        bai   = 'mapping/{group}/{refori}.illumina.bam.bai',
+        vcf   = 'phasing/glopp/{group}/{refori}.illumina.{vcaller}.vcfc_header'
     output:
-        outdir = directory('phasing/glopp/{group}/illumina/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/illumina/{vcaller}')
     benchmark:
-        'benchmarks/{group}.glopp.illumina.{vcaller}.txt'
+        'benchmarks/{group}.glopp.{refori}.illumina.{vcaller}.txt'
     threads:
         16
     log:
-        'logs/{group}/glopp.illumina.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.illumina.{vcaller}.log'
     params:
         executable = GLOPP
     shell:
@@ -58,19 +40,19 @@ rule glopp_illumina:
 
 rule glopp_nanopore:
     input:
-        fasta = rules.link_fasta.output,
-        fai   = rules.fasta_index.output,
-        bam   = 'mapping/{group}/merged.nanopore.bam',
-        bai   = 'mapping/{group}/merged.nanopore.bam.bai',
-        vcf   = 'phasing/glopp/{group}/nanopore.{vcaller}.vcfc_header'
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.nanopore.bam',
+        bai   = 'mapping/{group}/{refori}.nanopore.bam.bai',
+        vcf   = 'phasing/glopp/{group}/{refori}.nanopore.{vcaller}.vcfc_header'
     output:
-        outdir = directory('phasing/glopp/{group}/nanopore/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/nanopore/{vcaller}')
     benchmark:
-        'benchmarks/{group}.glopp.nanopore.{vcaller}.txt'
+        'benchmarks/{group}.glopp.{refori}.nanopore.{vcaller}.txt'
     threads:
         16
     log:
-        'logs/{group}/glopp.nanopore.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.nanopore.{vcaller}.log'
     params:
         executable = GLOPP
     shell:
@@ -78,20 +60,20 @@ rule glopp_nanopore:
 
 rule glopp_hybrid:
     input:
-        fasta = rules.link_fasta.output,
-        fai   = rules.fasta_index.output,
-        bam   = 'mapping/{group}/merged.nanopore.bam',
-        bai   = 'mapping/{group}/merged.nanopore.bam.bai',
-        short = 'mapping/{group}/merged.illumina.bam',
-        vcf   = 'phasing/glopp/{group}/illumina.{vcaller}.vcfc_header'
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.nanopore.bam',
+        bai   = 'mapping/{group}/{refori}.nanopore.bam.bai',
+        short = 'mapping/{group}/{refori}.illumina.bam',
+        vcf   = 'phasing/glopp/{group}/{refori}.illumina.{vcaller}.vcfc_header'
     output:
-        outdir = directory('phasing/glopp/{group}/hybrid/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/hybrid/{vcaller}')
     benchmark:
-        'benchmarks/{group}.glopp.hybrid.{vcaller}.txt'
+        'benchmarks/{group}.glopp.{refori}.hybrid.{vcaller}.txt'
     threads:
         16
     log:
-        'logs/{group}/glopp.hybrid.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.hybrid.{vcaller}.log'
     params:
         executable = GLOPP
     shell:
@@ -112,9 +94,9 @@ rule glopp_assembly_nanopore_wtdbg2_prep1:
     input:
         rules.glopp_nanopore.output
     output:
-        'phasing/glopp_temp/{group}/nanopore/{vcaller}/nanoprep1.cmdlines.txt'
+        'phasing/glopp_temp/{group}/{refori}/nanopore/{vcaller}/nanoprep1.cmdlines.txt'
     params:
-        fnames = 'phasing/glopp/{group}/nanopore/{vcaller}/*/long_reads/*.fastq',
+        fnames = 'phasing/glopp/{group}/{refori}/nanopore/{vcaller}/*/long_reads/*.fastq',
         suffix = 'nanoprep1',
         preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
     shell:
@@ -129,9 +111,9 @@ rule glopp_assembly_hybrid_wtdbg2_prep1:
     input:
         rules.glopp_hybrid.output
     output:
-        'phasing/glopp_temp/{group}/hybrid/{vcaller}/nanoprep1.cmdlines.txt'
+        'phasing/glopp_temp/{group}/{refori}/hybrid/{vcaller}/nanoprep1.cmdlines.txt'
     params:
-        fnames = 'phasing/glopp/{group}/hybrid/{vcaller}/*/long_reads/*.fastq',
+        fnames = 'phasing/glopp/{group}/{refori}/hybrid/{vcaller}/*/long_reads/*.fastq',
         suffix = 'nanoprep1',
         preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
     shell:
@@ -144,43 +126,43 @@ rule glopp_assembly_hybrid_wtdbg2_prep1:
 
 rule glopp_assembly:
     input:
-        'phasing/glopp_temp/{group}/{glopp_mode}/{vcaller}/{prep}.cmdlines.txt'
+        'phasing/glopp_temp/{group}/{refori}/{glopp_mode}/{vcaller}/{prep}.cmdlines.txt'
     output:
-        temp(touch('phasing/glopp_temp/{group}/{glopp_mode}/{vcaller}/{prep}.finished.empty'))
+        temp(touch('phasing/glopp_temp/{group}/{refori}/{glopp_mode}/{vcaller}/{prep}.finished.empty'))
     threads:
         16 # we defined 4 cores for wtdbg - this might fail when threads is reduced but still ok I guess
     conda:
         'envs/wtdbg2.yaml'
     log:
-        'phasing/glopp_temp/{group}/{glopp_mode}/{vcaller}/{prep}.log.txt'
+        'phasing/glopp_temp/{group}/{refori}.{glopp_mode}.{vcaller}.{prep}.log.txt'
     shell:
         'parallel --jobs 4 < {input}'
 
 rule glopp_assembly_nanopore_wtdbg2_rename:
     input:
-        'phasing/glopp_temp/{group}/nanopore/{vcaller}/{prep}.finished.empty'
+        'phasing/glopp_temp/{group}/{refori}/nanopore/{vcaller}/{prep}.finished.empty'
     output:
-        'phasing/assemblies/{group}/glopp.nanopore.{vcaller}.{prep}.fa'
+        'phasing/assemblies/{group}/glopp.{refori}.nanopore.{vcaller}.{prep}.fa'
     params:
-        fnames = 'phasing/glopp/{group}/nanopore/{vcaller}/*/long_reads/*_part_{prep}/*.ctg.fa'
+        fnames = 'phasing/glopp/{group}/{refori}/nanopore/{vcaller}/*/long_reads/*_part_{prep}/*.ctg.fa'
     script:
         'scripts/glopp_wtdbg2_merger.py'
 
 rule glopp_assembly_hybrid_wtdbg2_rename:
     input:
-        'phasing/glopp_temp/{group}/hybrid/{vcaller}/{prep}.finished.empty'
+        'phasing/glopp_temp/{group}/{refori}/hybrid/{vcaller}/{prep}.finished.empty'
     output:
-        'phasing/assemblies/{group}/glopp.hybrid.{vcaller}.{prep}.fa'
+        'phasing/assemblies/{group}/glopp.{refori}.hybrid.{vcaller}.{prep}.fa'
     params:
-        fnames = 'phasing/glopp/{group}/hybrid/{vcaller}/*/long_reads/*_part_{prep}/*.ctg.fa'
+        fnames = 'phasing/glopp/{group}/{refori}/hybrid/{vcaller}/*/long_reads/*_part_{prep}/*.ctg.fa'
     script:
         'scripts/glopp_wtdbg2_merger.py'
 
 rule glopp_assembly_wtdbg2_merge_compress:
     input:
-        'phasing/assemblies/{group}/glopp.{glopp_mode}.{vcaller}.{prep}.fa'
+        'phasing/assemblies/{group}/glopp.{refori}.{glopp_mode}.{vcaller}.{prep}.fa'
     output:
-        'phasing/assemblies/{group}/glopp.{glopp_mode}.{vcaller}.{prep}.fa.gz'
+        'phasing/assemblies/{group}/glopp.{refori}.{glopp_mode}.{vcaller}.{prep}.fa.gz'
     shell:
         'gzip {input}'
 
@@ -188,6 +170,6 @@ rule uncompress:
     input:
         rules.glopp_assembly_wtdbg2_merge_compress.output
     output: 
-        temp('temp/assemblies/{group}/glopp.{glopp_mode}.{vcaller}.{prep}.fa')
+        temp('temp/assemblies/{group}/glopp.{refori}.{glopp_mode}.{vcaller}.{prep}.fa')
     shell:
         'zcat {input} > {output}'

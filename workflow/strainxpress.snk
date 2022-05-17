@@ -1,0 +1,68 @@
+STRAINXPRESS = '/home/ubuntu/strainxpress/StrainXpress/scripts/strainxpress.py'
+
+rule interleave_reads:
+    input:
+        sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
+        sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz'
+    output:
+        'phasing/strainxpress/{group}/interleaved.fastq'
+    shell:
+        'python workflow/scripts/strainxpress_interleave_illumina.py {input.sr1} {input.sr2} > {output}'
+
+rule strainxpress_fast:
+    input:
+        fastq = rules.interleave_reads.output
+    output:
+        directory = directory('phasing/strainxpress/{group}/fast'),
+        scaffold  = 'phasing/strainxpress/{group}/fast/stageb/contigs.stage_b.fasta'
+    params:
+        executable = STRAINXPRESS,
+        insertsize = 300,
+        readlength = 150
+    conda:
+        'envs/strainxpress.yaml'
+    benchmark:
+        'benchmarks/{group}.strainxpress.fast.txt'
+    threads:
+        16
+    log:
+        'logs/{group}/strainxpress.fast.log'
+    shell:
+        '(cd {output.directory} && python {params.executable} -fq ../interleaved.fastq -t {threads} -insert_size {params.insertsize} -average_read_len {params.readlength} -fast) 2> {log}'
+
+rule strainxpress_regular:
+    input:
+        fastq = rules.interleave_reads.output
+    output:
+        directory = directory('phasing/strainxpress/{group}/regular'),
+        scaffold  = 'phasing/strainxpress/{group}/regular/stageb/contigs.stage_b.fasta'
+    params:
+        executable = STRAINXPRESS,
+        insertsize = 300,
+        readlength = 150
+    conda:
+        'envs/strainxpress.yaml'
+    benchmark:
+        'benchmarks/{group}.strainxpress.regular.txt'
+    threads:
+        16
+    log:
+        'logs/{group}/strainxpress.regular.log'
+    shell:
+        '(cd {output.directory} && python {params.executable} -fq ../interleaved.fastq -t {threads} -insert_size {params.insertsize} -average_read_len {params.readlength}) 2> {log}'
+
+rule strainxpress_compress:
+    input:
+        'phasing/strainxpress/{group}/{type}/stageb/contigs.stage_b.fasta'
+    output:
+        'phasing/assemblies/{group}/strainxpress.{type}.fa.gz'
+    shell:
+        'gzip -c {input} > {output}'
+
+rule uncompress:
+    input:
+        rules.strainxpress_compress.output
+    output: 
+        temp('temp/assemblies/{group}/strainxpress.{type}.fa')
+    shell:
+        'zcat {input} > {output}'

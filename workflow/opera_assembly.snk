@@ -1,0 +1,36 @@
+OPERAMS = 'perl /home/ubuntu/OPERA-MS/OPERA-MS.pl'
+
+rule uncompress_long:
+    input:
+        'reads/{group}/nanopore/merged.fastq.gz'
+    output:
+        temp('reads/{group}/nanopore/merged.fastq')
+    shell:
+        'gunzip -c {input} > {output}'
+
+rule operams:
+    input:
+        sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
+        sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz',
+        lr = 'reads/{group}/nanopore/merged.fastq'
+    params:
+        executable = OPERAMS
+    output:
+        outdir = directory('assembly/operams/{group}'),
+        fasta = 'assembly/operams/{group}/contigs.polished.fasta'
+    conda:
+        'envs/operams.yaml'
+    log:
+        'logs/{group}/assembly.operams.log'
+    threads:
+        16
+    shell:
+        '({params.executable} --short-read1 {input.sr1} --short-read2 {input.sr2} --long-read {input.lr} --out-dir {output.outdir} --polishing --num-processors {threads})  2> {log}'
+
+rule link_assembly:
+    input:
+        rules.operams.output.fasta
+    output:
+        'references/used/{group}/refmap/operams.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'

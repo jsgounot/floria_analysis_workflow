@@ -1,74 +1,54 @@
-from scripts.utilities import get_mapping_ref
-
 STRAINBERRY = '/home/ubuntu/miniconda3/envs/strainberry/bin/strainberry'
-
-rule link_fasta:
-    input:
-        lambda wc: get_mapping_ref(wc, config)
-    output:
-        'phasing/strainberry/{group}/ref.fasta'
-    shell:
-        'ln -s $(pwd)/{input} {output}'
-
-rule fasta_index:
-    input:
-        fasta = 'phasing/strainberry/{group}/ref.fasta'
-    output:
-        'phasing/strainberry/{group}/ref.fasta.fai'
-    conda:
-        'envs/minimap2.yaml'
-    shell:
-        'samtools faidx {input.fasta}'
 
 rule strainberry_illumina:
     input:
-        fasta = 'phasing/strainberry/{group}/ref.fasta',
-        fai   = 'phasing/strainberry/{group}/ref.fasta.fai',
-        bam   = 'mapping/{group}/merged.illumina.bam',
-        bai   = 'mapping/{group}/merged.illumina.bam.bai'
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.illumina.bam',
+        bai   = 'mapping/{group}/{refori}.illumina.bam.bai'
     output:
-        directory = directory('phasing/strainberry/{group}/illumina'),
-        scaffold  = 'phasing/strainberry/{group}/illumina/assembly.scaffolds.fa'
+        directory = directory('phasing/strainberry/{group}/{refori}/illumina'),
+        scaffold  = 'phasing/strainberry/{group}/{refori}/illumina/assembly.scaffolds.fa'
     params:
         executable = STRAINBERRY
     conda:
         'envs/strainberry.yaml'
     benchmark:
-        'benchmarks/{group}.strainberry.illumina.txt'
+        'benchmarks/{group}/strainberry.{refori}.illumina.txt'
     threads:
         1
     log:
-        'logs/{group}/strainberry.illumina.log'
+        'logs/{group}/strainberry.{refori}.illumina.log'
     shell:
         '{params.executable} -r {input.fasta} -b {input.bam} -o {output.directory} -c 16 2> {log}'
 
 rule strainberry_nanopore:
     input:
-        fasta = 'phasing/strainberry/{group}/ref.fasta',
-        fai   = 'phasing/strainberry/{group}/ref.fasta.fai',
-        bam   = 'mapping/{group}/merged.nanopore.bam',  
-        bai   = 'mapping/{group}/merged.nanopore.bam.bai'
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.nanopore.bam',  
+        bai   = 'mapping/{group}/{refori}.nanopore.bam.bai'
     output:
-        directory = directory('phasing/strainberry/{group}/nanopore'),
-        scaffold  = 'phasing/strainberry/{group}/nanopore/assembly.scaffolds.fa'
+        directory = directory('phasing/strainberry/{group}/{refori}/nanopore'),
+        scaffold  = 'phasing/strainberry/{group}/{refori}/nanopore/assembly.scaffolds.fa'
     params:
         executable = STRAINBERRY
     conda:
         'envs/strainberry.yaml'
     benchmark:
-        'benchmarks/{group}.strainberry.nanopore.txt'
+        'benchmarks/{group}/strainberry.{refori}.nanopore.txt'
     threads:
         1
     log:
-        'logs/{group}/strainberry.nanopore.log'
+        'logs/{group}/strainberry.{refori}.nanopore.log'
     shell:
         '{params.executable} -r {input.fasta} -b {input.bam} -o {output.directory} -c 16 --nanopore 2> {log}'
 
 rule strainberry_compress:
     input:
-        'phasing/strainberry/{group}/{type}/assembly.scaffolds.fa'
+        'phasing/strainberry/{group}/{refori}/{type}/assembly.scaffolds.fa'
     output:
-        'phasing/assemblies/{group}/strainberry.{type}.fa.gz'
+        'phasing/assemblies/{group}/{refori}.strainberry.{type}.fa.gz'
     shell:
         'gzip -c {input} > {output}'
 
@@ -76,6 +56,6 @@ rule uncompress:
     input:
         rules.strainberry_compress.output
     output: 
-        temp('temp/assemblies/{group}/strainberry.{type}.fa')
+        temp('temp/assemblies/{group}/{refori}.strainberry.{type}.fa')
     shell:
         'zcat {input} > {output}'
