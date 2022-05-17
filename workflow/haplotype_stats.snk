@@ -1,10 +1,10 @@
 REFERENCES = {
-    group: sorted(expand('references/used/{group}/{sample}.fasta', group=group, sample=sorted(samples)))
+    group: sorted(expand('references/used/{group}/sample/{sample}.fasta', group=group, sample=sorted(samples)))
     for group, samples in config.items()
 }
 
 REFERENCES_DICT = {
-    group: {sample : f'references/used/{group}/{sample}.fasta' for sample in samples}
+    group: {sample : f'references/used/{group}/sample/{sample}.fasta' for sample in samples}
     for group, samples in config.items()
 }
 

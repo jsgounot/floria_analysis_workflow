@@ -2,7 +2,7 @@ from itertools import permutations
 
 def get_refs(group):
     samples = sorted(config[group])
-    return expand('references/used/{group}/{sample}.fasta', group=group, sample=samples)
+    return expand('references/used/{group}/sample/{sample}.fasta', group=group, sample=samples)
 
 def get_fasta(group, idx):
     refs = get_refs(group)

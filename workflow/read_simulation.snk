@@ -4,7 +4,7 @@ import os
 
 rule badread_make_ref:
     input:
-        'references/used/{group}/{sample}.fasta'
+        'references/used/{group}/sample/{sample}.fasta'
     output:
         temp('reads/{group}/nanopore/{sample}.ref.fa.gz')
     params:
@@ -104,7 +104,7 @@ rule merge_nanopore:
 
 rule illumina_art_run:
     input:
-        'references/used/{group}/{sample}.fasta'
+        'references/used/{group}/sample/{sample}.fasta'
     output:
         r1 = 'reads/{group}/illumina/{sample}_R1.fq',
         r2 = 'reads/{group}/illumina/{sample}_R2.fq'
@@ -152,7 +152,7 @@ rule merge_reads:
 
 rule pacbio_pbsim_prepare:
     input:
-        'references/used/{group}/{sample}.fasta'
+        'references/used/{group}/sample/{sample}.fasta'
     output:
         fasta = temp('reads/{group}/pacbio/{sample}.fasta')
     run:
