@@ -1,13 +1,15 @@
 STRAINXPRESS = '/home/ubuntu/strainxpress/StrainXpress/scripts/strainxpress.py'
 
+
 rule interleave_reads:
     input:
         sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
         sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz'
     output:
         'phasing/strainxpress/{group}/interleaved.fastq'
-    shell:
-        'python workflow/scripts/strainxpress_interleave_illumina.py {input.sr1} {input.sr2} > {output}'
+    script:
+        'scripts/strainxpress_interleave_illumina.py'
+        #'python {executable} {input.sr1} {input.sr2} > {output}'
 
 rule strainxpress_fast:
     input:

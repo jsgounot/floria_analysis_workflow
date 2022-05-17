@@ -2,47 +2,42 @@
 # @Author: jsgounot
 # @Date:   2022-04-05 15:41:06
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2022-05-09 17:16:06
+# @Last Modified time: 2022-05-17 15:01:53
 
 # Copy from here: https://github.com/ekg/interleave-fastq/blob/master/interleave-fastq
 
 import sys, os
 
-def interleave(f1, f2):
+def interleave(f1, f2, of):
     # Interleaves two (open) fastq files.
     while True:
         line = f1.readline()
         if line.strip() == "":
             break
 
-        print (line.strip())
+        of.write(line.strip() + '\n')
         
         for i in range(3):
-            print (f1.readline().strip())
+            of.write(f1.readline().strip() + '\n')
         
         for i in range(4):
-            print (f2.readline().strip())
+            of.write(f2.readline().strip() + '\n')
 
-if __name__ == '__main__':
-    try:
-        file1 = sys.argv[1]
-        file2 = sys.argv[2]
-    except:
-        print ('Unable to parse arguments (python strainxpress_interleave_illumina.py fastq1 fastq2)')
-        sys.exit(1)
 
-    isfile = os.path.isfile
-    if not isfile(file1) or not isfile(file2):
-        raise OSError('Files not found')
+file1 = snakemake.input[0]
+file2 = snakemake.input[1]
+outfile = snakemake.output[0]
 
-    if file1[-2:] == "gz":
-        import gzip
-        with gzip.open(file1, 'rt') as f1:
-            with gzip.open(file2, 'rt') as f2:
-                interleave(f1, f2)
+if file1[-2:] == "gz":
+    import gzip
+    with gzip.open(file1, 'rt') as f1:
+        with gzip.open(file2, 'rt') as f2:
+            with open(outfile, 'w') as of:
+                interleave(f1, f2, of)
 
-    else:
-        with open(file1) as f1:
-            with open(file2) as f2:
-                interleave(f1, f2)
+else:
+    with open(file1) as f1:
+        with open(file2) as f2:
+            with open(outfile, 'w') as of:
+                interleave(f1, f2, of)
 
