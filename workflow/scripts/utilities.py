@@ -2,7 +2,9 @@
 # @Author: jsgounot
 # @Date:   2022-04-01 17:34:35
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2022-05-10 15:54:09
+# @Last Modified time: 2022-05-18 09:27:57
+
+import os
 
 def get_ref(wildcards, config):
     group, sample = wildcards.group, wildcards.sample   
