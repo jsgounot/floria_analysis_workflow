@@ -98,14 +98,10 @@ rule glopp_assembly_nanopore_wtdbg2_prep1:
     params:
         fnames = 'phasing/glopp/{group}/{refori}/nanopore/{vcaller}/*/long_reads/*.fastq',
         suffix = 'nanoprep1',
-        preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
-    shell:
-        'for fname in {params.fnames}; \
-        do echo "mkdir -p ${{fname%.*}}_{params.suffix} && \
-        (wtdbg2 {params.preset} -t 4 -i $fname -o ${{fname%.*}}_{params.suffix}/$(basename ${{fname%.*}}).{params.suffix} && \
-        wtpoa-cns -t 4 -i ${{fname%.*}}_{params.suffix}/$(basename ${{fname%.*}}).{params.suffix}.ctg.lay.gz -fo ${{fname%.*}}_{params.suffix}/$(basename ${{fname%.*}}).{params.suffix}.ctg.fa) 2> \
-        ${{fname%.*}}_{params.suffix}/$(basename ${{fname%.*}}).{params.suffix}.log.txt"; done \
-        >> {output}'
+        preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R',
+        core_j = 4
+    script:
+        'scripts/glopp_wtdbg2_cmdline.py'
 
 rule glopp_assembly_hybrid_wtdbg2_prep1:
     input:
@@ -115,14 +111,10 @@ rule glopp_assembly_hybrid_wtdbg2_prep1:
     params:
         fnames = 'phasing/glopp/{group}/{refori}/hybrid/{vcaller}/*/long_reads/*.fastq',
         suffix = 'nanoprep1',
-        preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
-    shell:
-        'for fname in {params.fnames}; \
-        do echo "mkdir -p ${{fname%.*}}_{params.suffix} && \
-        (wtdbg2 {params.preset} -t 4 -i $fname -o ${{fname%.*}}_{params.suffix}/$(basename ${{fname%.*}}).{params.suffix} && \
-        wtpoa-cns -t 4 -i ${{fname%.*}}_{params.suffix}/$(basename ${{fname%.*}}).{params.suffix}.ctg.lay.gz -fo ${{fname%.*}}_{params.suffix}/$(basename ${{fname%.*}}).{params.suffix}.ctg.fa) 2> \
-        ${{fname%.*}}_{params.suffix}/$(basename ${{fname%.*}}).{params.suffix}.log.txt"; done \
-        >> {output}'
+        preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R',
+        core_j = 4
+    script:
+        'scripts/glopp_wtdbg2_cmdline.py'
 
 rule glopp_assembly:
     input:
@@ -135,10 +127,12 @@ rule glopp_assembly:
         'envs/wtdbg2.yaml'
     log:
         'phasing/glopp_temp/{group}/{refori}.{glopp_mode}.{vcaller}.{prep}.log.txt'
+    benchmark:
+        'benchmarks/{group}.glopp.assembly.{refori}.{glopp_mode}.{vcaller}.{prep}.txt'
     shell:
         'parallel --jobs 4 < {input}'
 
-rule glopp_assembly_nanopore_wtdbg2_rename:
+rule glopp_assembly_nanopore_wtdbg2_merge:
     input:
         'phasing/glopp_temp/{group}/{refori}/nanopore/{vcaller}/{prep}.finished.empty'
     output:
@@ -148,7 +142,7 @@ rule glopp_assembly_nanopore_wtdbg2_rename:
     script:
         'scripts/glopp_wtdbg2_merger.py'
 
-rule glopp_assembly_hybrid_wtdbg2_rename:
+rule glopp_assembly_hybrid_wtdbg2_merge:
     input:
         'phasing/glopp_temp/{group}/{refori}/hybrid/{vcaller}/{prep}.finished.empty'
     output:
