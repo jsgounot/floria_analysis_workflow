@@ -1,6 +1,5 @@
 STRAINXPRESS = '/home/ubuntu/strainxpress/StrainXpress/scripts/strainxpress.py'
 
-
 rule interleave_reads:
     input:
         sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
@@ -16,7 +15,8 @@ rule strainxpress_fast:
         fastq = rules.interleave_reads.output
     output:
         directory = directory('phasing/strainxpress/{group}/fast'),
-        scaffold  = 'phasing/strainxpress/{group}/fast/stageb/contigs.stage_b.fasta'
+        scaffold  = 'phasing/strainxpress/{group}/fast/stageb/contigs.stage_b.fasta',
+        mapres = temp('phasing/strainxpress/{group}/fast/all_reads_sort.map')
     params:
         executable = STRAINXPRESS,
         insertsize = 300,
@@ -37,7 +37,8 @@ rule strainxpress_regular:
         fastq = rules.interleave_reads.output
     output:
         directory = directory('phasing/strainxpress/{group}/regular'),
-        scaffold  = 'phasing/strainxpress/{group}/regular/stageb/contigs.stage_b.fasta'
+        scaffold  = 'phasing/strainxpress/{group}/regular/stageb/contigs.stage_b.fasta',
+        mapres = temp('phasing/strainxpress/{group}/regular/all_reads_sort.map')
     params:
         executable = STRAINXPRESS,
         insertsize = 300,
