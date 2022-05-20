@@ -1,3 +1,4 @@
+import glob, os
 from scripts.utilities import get_mapping_ref
 
 GLOPP = '~/glopp/glopp/target/release/glopp'
@@ -79,91 +80,87 @@ rule glopp_hybrid:
     shell:
         '{params.executable} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -H {input.short} --reassign-short -X -e 0.01 > {log}'
 
+checkpoint run_assembly:
+    input:
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}'
+    output: 
+        temp(touch('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}.done'))
+
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Assembly
 
-rule glopp_assembly_illumina_abyss_prep1:
-    input:
-        rules.glopp_illumina.output
-    output:
-        'phasing/glopp_temp/{group}/illumina/{vcaller}/nanoprep1.cmdlines.txt'
-    shell:
-        'touch {output}'
 
-rule glopp_assembly_nanopore_wtdbg2_prep1:
+rule wtdbg2:
     input:
-        rules.glopp_nanopore.output
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}.fastq'
     output:
-        'phasing/glopp_temp/{group}/{refori}/nanopore/{vcaller}/nanoprep1.cmdlines.txt'
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.ctg.lay.gz'
     params:
-        fnames = 'phasing/glopp/{group}/{refori}/nanopore/{vcaller}/*/long_reads/*.fastq',
-        suffix = 'nanoprep1',
         preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R',
-        core_j = 4
-    script:
-        'scripts/glopp_wtdbg2_cmdline.py'
-
-rule glopp_assembly_hybrid_wtdbg2_prep1:
-    input:
-        rules.glopp_hybrid.output
-    output:
-        'phasing/glopp_temp/{group}/{refori}/hybrid/{vcaller}/nanoprep1.cmdlines.txt'
-    params:
-        fnames = 'phasing/glopp/{group}/{refori}/hybrid/{vcaller}/*/long_reads/*.fastq',
-        suffix = 'nanoprep1',
-        preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R',
-        core_j = 4
-    script:
-        'scripts/glopp_wtdbg2_cmdline.py'
-
-rule glopp_assembly:
-    input:
-        'phasing/glopp_temp/{group}/{refori}/{glopp_mode}/{vcaller}/{prep}.cmdlines.txt'
-    output:
-        temp(touch('phasing/glopp_temp/{group}/{refori}/{glopp_mode}/{vcaller}/{prep}.finished.empty'))
-    threads:
-        16 # we defined 4 cores for wtdbg - this might fail when threads is reduced but still ok I guess
+        of = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}'
     conda:
         'envs/wtdbg2.yaml'
     log:
-        'phasing/glopp_temp/{group}/{refori}.{glopp_mode}.{vcaller}.{prep}.log.txt'
+        'logs/wtdbg2/wtdbg2.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.log'
     benchmark:
-        'benchmarks/{group}.glopp.assembly.{refori}.{glopp_mode}.{vcaller}.{prep}.txt'
+        'benchmarks/wtdbg2.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.txt'
+    threads:
+        4
     shell:
-        'parallel --jobs 4 < {input}'
+        'wtdbg2 {params.preset} -t {threads} -i {input} -o {params.of} 2> {log}'
 
-rule glopp_assembly_nanopore_wtdbg2_merge:
+rule wtpoa:
     input:
-        'phasing/glopp_temp/{group}/{refori}/nanopore/{vcaller}/{prep}.finished.empty'
+        rules.wtdbg2.output
     output:
-        'phasing/assemblies/{group}/glopp.{refori}.nanopore.{vcaller}.{prep}.fa'
-    params:
-        fnames = 'phasing/glopp/{group}/{refori}/nanopore/{vcaller}/*/long_reads/*_part_{prep}/*.ctg.fa'
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.ctg.fa'
+    conda:
+        'envs/wtdbg2.yaml'
+    log:
+        'logs/wtdbg2/wtpoa.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.log'
+    benchmark:
+        'benchmarks/wtpoa.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.txt'
+    threads:
+        4
+    shell:
+        'wtpoa-cns -t {threads} -i {input} -fo {output} 2> {log}'
+
+def aggregate_input_wtgdb2(wildcards):
+    checkpoint_output = checkpoints.run_assembly.get(** wildcards).output[0][:-5]
+    f = os.path.join(checkpoint_output, '*', wildcards.rtype, '*.fastq')
+    f = glob.glob(f)
+
+    for idx, fname in enumerate(f):
+
+        if os.stat(fname).st_size == 0:
+            # Sometime we have empty files, we juste ignore them
+            continue
+
+        partID = os.path.basename(fname)[:-6]
+        f[idx] = os.path.join(os.path.dirname(fname), partID, partID + '.ctg.fa')
+
+    return f
+
+rule wtdbg2_merge:
+    input:
+        aggregate_input_wtgdb2
+    output:
+        'phasing/assemblies/{group}/{refori}.glopp.{gmode}.wtdbg2.{rtype}.{vcaller}.fa'
     script:
         'scripts/glopp_wtdbg2_merger.py'
 
-rule glopp_assembly_hybrid_wtdbg2_merge:
+rule assembly_compress:
     input:
-        'phasing/glopp_temp/{group}/{refori}/hybrid/{vcaller}/{prep}.finished.empty'
+        'phasing/assemblies/{group}/{refori}.glopp.{gmode}.{assembler}.{rtype}.{vcaller}.fa'
     output:
-        'phasing/assemblies/{group}/glopp.{refori}.hybrid.{vcaller}.{prep}.fa'
-    params:
-        fnames = 'phasing/glopp/{group}/{refori}/hybrid/{vcaller}/*/long_reads/*_part_{prep}/*.ctg.fa'
-    script:
-        'scripts/glopp_wtdbg2_merger.py'
-
-rule glopp_assembly_wtdbg2_merge_compress:
-    input:
-        'phasing/assemblies/{group}/glopp.{refori}.{glopp_mode}.{vcaller}.{prep}.fa'
-    output:
-        'phasing/assemblies/{group}/glopp.{refori}.{glopp_mode}.{vcaller}.{prep}.fa.gz'
+        'phasing/assemblies/{group}/{refori}.glopp.{gmode}.{assembler}.{rtype}.{vcaller}.fa.gz'
     shell:
         'gzip {input}'
 
 rule uncompress:
     input:
-        rules.glopp_assembly_wtdbg2_merge_compress.output
+        rules.assembly_compress.output
     output: 
-        temp('temp/assemblies/{group}/glopp.{refori}.{glopp_mode}.{vcaller}.{prep}.fa')
+        temp('temp/assemblies/{group}/{refori}.glopp.{gmode}.{assembler}.{rtype}.{vcaller}.fa')
     shell:
         'zcat {input} > {output}'
