@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2022-03-28 19:32:34
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2022-03-28 21:14:30
+# @Last Modified time: 2022-05-19 18:06:55
 
 
 '''
@@ -31,43 +31,42 @@ def load_qcoords(fname):
     df['fidx'] = bname(fname).split('.')[0]
     return df
 
-def agghits(df):
-    
-    if df.empty:
-        return pd.Series({
-            'avg_idy': 0,
-            'prc_ref': 0,
-            'aligned_bases': 0,
-            'size_ref': 0
-        })
+def get_coverage(df):
+    if len(df) > 1:
+        # quite slow but does the job correctly
+        # https://github.com/rvicedomini/strainberry-analyses/issues/1
+        bt = BedTool.from_dataframe(df[['Q_NAME', 'Q_MIN', 'Q_MAX']].sort_values('Q_MIN'))
+        return bt.total_coverage()
+    else:
+        return (df['Q_MAX'] - df['Q_MIN']).sum()
 
+def extract_sim(df):
     df['Q_MIN'] = df[['Q_BEG', 'Q_END']].min(axis=1) - 1
     df['Q_MAX'] = df[['Q_BEG', 'Q_END']].max(axis=1)
 
-    # quite slow but does the job correctly
-    # https://github.com/rvicedomini/strainberry-analyses/issues/1
-    bt = BedTool.from_dataframe(df[['Q_NAME', 'Q_MIN', 'Q_MAX']].sort_values('Q_MIN'))
-    qryAlnBases = bt.total_coverage()
-
     df['weight'] = df['R_HITLEN'] + df['Q_HITLEN']
-    sumIDY = (df['%IDY'] * df['weight']).sum()
-    avgIdy = sumIDY / df['weight'].sum()
 
-    query_bases = list(df['Q_LEN'].unique())
-    assert len(query_bases) == 1
-    query_bases = query_bases[0]
+    keys = ['Q_NAME', 'fidx']
+    cov = df.groupby(keys).apply(get_coverage)
+    cov = cov.rename('aligned_bases').reset_index()
 
-    prc_ref_covered = (100 * qryAlnBases) / query_bases
+    df['widy'] = df['%IDY'] * df['weight']
+    avgIdy = df.groupby(keys)['widy'].sum() / df.groupby(keys)['weight'].sum()
+    avgIdy = avgIdy.rename('avg_idy').reset_index()
 
-    return pd.Series({
-        'avg_idy': avgIdy,
-        'prc_ref': prc_ref_covered,
-        'aligned_bases': qryAlnBases,
-        'size_ref': query_bases
-    })
+    qlen = df.groupby('Q_NAME')['Q_LEN'].nunique()
+    assert qlen[qlen != 1].empty
+    qlen = df.drop_duplicates('Q_NAME').set_index('Q_NAME')['Q_LEN'].to_dict()
+
+    sdf = avgIdy.merge(cov, how='outer')
+    sdf['size_ref'] = sdf['Q_NAME'].map(qlen)
+
+    sdf['prc_ref'] = (100 * sdf['aligned_bases']) / sdf['size_ref']
+
+    return sdf
 
 def filter_best(df):
-    sdf = df.groupby(['Q_NAME', 'fidx']).apply(agghits).reset_index()
+    sdf = extract_sim(df)
 
     # Minimum 50% of the reference bases covered
     sdf = sdf[sdf['prc_ref'] > 50]
