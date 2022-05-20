@@ -1,55 +1,30 @@
 import os
 from pathlib import Path
 
-# snakemake -s single_species_synthetic.snk --configfile config.json --use-conda --cores 1 --resources ncbi_load=1
 # snakemake -s single_species_synthetic.snk --configfile synthetic.json --use-conda --cores 2 --resources ncbi_load=1 --attempt 3  --directory res_sss
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
 GROUPS = set(config)
 SUBGROUP = [
-    'glopp.inpref.hybrid.longshot.nanoprep1',
-    'glopp.inpref.hybrid.lofreq.nanoprep1',
-    'glopp.inpref.nanopore.longshot.nanoprep1',
+    'inpref.glopp.hybrid.wtdbg2.long_reads.longshot',
+    'inpref.glopp.hybrid.wtdbg2.long_reads.lofreq',
+    'inpref.glopp.nanopore.wtdbg2.long_reads.longshot',
 
-    'glopp.operams.hybrid.longshot.nanoprep1',
-    'glopp.operams.hybrid.lofreq.nanoprep1',
+    'operams.glopp.hybrid.wtdbg2.long_reads.longshot',
+    'operams.glopp.hybrid.wtdbg2.long_reads.lofreq',
 
     'inpref.strainberry.nanopore',
     'operams.strainberry.nanopore',
 
-    'strainxpress.regular'
+    'none.strainxpress.regular'
     ]
-
-
-#GROUPS = [sorted(GROUPS)]
-#GROUPS = ['ecoli']
 
 rule all:
     input:
         expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
         expand('refcomp/{group}.fastani.txt', group=GROUPS),
-        expand('refcomp/{group}.mummer.txt', group=GROUPS),
-
-        #'phasing/assemblies/ecoli/glopp.inpref.hybrid.longshot.nanoprep1.fa.gz',
-        #'stats/assemblies/ecoli/glopp.inpref.hybrid.longshot.nanoprep1/mummer/circos/done.empty',
-
-        #'temp/assemblies/ecoli/strainxpress.regular.fa',
-        #'assembly/operams/ecoli/contigs.polished.fasta'
-
-        #expand('refcomp/{group}.fastani.txt', group=GROUPS),
-        #expand('refcomp/{group}.mummer.txt', group=GROUPS),
-
-        #expand('reads/{group}/illumina/merged/R1.fastq.gz', group=GROUPS),
-        #expand('reads/{group}/illumina/merged/R2.fastq.gz', group=GROUPS)
-        #expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
-        #expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
-        #'phasing/assemblies/ecoli/glopp.hybrid.longshot.nanoprep1.fa.gz'
-        #expand('phasing/assemblies/{group}/glopp.hybrid.longshot.nanoprep1.fa.gz', group=GROUPS),
-        #expand('phasing/assemblies/{group}/glopp.hybrid.lofreq.nanoprep1.fa.gz', group=GROUPS),
-        #expand('phasing/assemblies/{group}/glopp.nanopore.longshot.nanoprep1.fa.gz', group=GROUPS),
-        #expand('phasing/assemblies/{group}/strainberry.nanopore.fa.gz', group=GROUPS)
-
+        expand('refcomp/{group}.mummer.txt', group=GROUPS)
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
