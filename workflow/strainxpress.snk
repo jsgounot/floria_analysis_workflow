@@ -58,7 +58,7 @@ rule strainxpress_compress:
     input:
         'phasing/strainxpress/{group}/{type}/stageb/contigs.stage_b.fasta'
     output:
-        'phasing/assemblies/{group}/strainxpress.{type}.fa.gz'
+        'phasing/assemblies/{group}/none.strainxpress.{type}.fa.gz'
     shell:
         'gzip -c {input} > {output}'
 
@@ -66,6 +66,6 @@ rule uncompress:
     input:
         rules.strainxpress_compress.output
     output: 
-        temp('temp/assemblies/{group}/strainxpress.{type}.fa')
+        temp('temp/assemblies/{group}/none.strainxpress.{type}.fa')
     shell:
         'zcat {input} > {output}'

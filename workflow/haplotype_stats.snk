@@ -59,7 +59,7 @@ rule extract_best_results:
     input:
         get_qcoords
     output:
-        'stats/assemblies/{group}/{basename}/mummer/best_results.tsv',
+        'stats/assemblies/{group}/{basename}/mummer/best_results.tsv'
     script:
         'scripts/assemblies_stats_analyse_nucmer.py'
 
