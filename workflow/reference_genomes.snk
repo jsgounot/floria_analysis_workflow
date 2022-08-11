@@ -5,7 +5,7 @@ rule download_ncbinuc:
     output:
         'references/download/{group}/ncbinuc_{ncbiid}.fasta'
     conda:
-        'envs/entrez.yaml'
+        config['softparams']['conda']['entrez']
     resources:
         ncbi_load=1
     shell:
@@ -15,7 +15,7 @@ rule download_ncbiasbly:
     output:
         'references/download/{group}/ncbiasbly_{ncbiid}.fasta'
     conda:
-        'envs/entrez.yaml'
+        config['softparams']['conda']['entrez']
     resources:
         ncbi_load=1
     shell:
@@ -43,6 +43,6 @@ rule fasta_index:
     output:
         'references/used/{group}/refmap/{refori}.fa.fai'
     conda:
-        'envs/minimap2.yaml'
+        config['softparams']['conda']['minimap2']
     shell:
         'samtools faidx {input}'

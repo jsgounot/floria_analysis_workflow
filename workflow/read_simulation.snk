@@ -29,7 +29,7 @@ rule nanopore_badread_good:
         end_adapter_seq = '""',
         seed = 100
     conda:
-        'envs/badread.yaml'
+        config['softparams']['conda']['badread']
     log:
         'logs/{group}/badread.{sample}.good.log'
     shell:
@@ -53,7 +53,7 @@ rule nanopore_badread_bad:
         chimeras = 10,
         seed = 100
     conda:
-        'envs/badread.yaml'
+        config['softparams']['conda']['badread']
     log:
         'logs/{group}/badread.{sample}.good.log'
     shell:
@@ -117,7 +117,7 @@ rule illumina_art_run:
         coverage = lambda wc: str(config[wc.group][wc.sample]['quantity']),
         outname = 'reads/{group}/illumina/{sample}_R'
     conda:
-        'envs/art.yaml'
+        config['softparams']['conda']['art']
     log:
         'logs/{group}/art_illumina.{sample}.log'
     shell:
@@ -170,7 +170,7 @@ rule pacbio_pbsim_ccs:
         prefix = 'reads/{group}/pacbio/{sample}_ccs',
         seed = 100
     conda:
-        'envs/pbsim.yaml'
+        config['softparams']['conda']['pbsim']
     shell:
         'pbsim --data-type CCS --seed {params.seed} --depth {params.cover} --model_qc {input.model} --prefix {params.prefix} {input.reference}'
 
@@ -196,7 +196,7 @@ rule merge_pacbio_pbsim_ccs:
     input:
         get_pbsim_reads_css
     output:
-        'reads/{group}/merged/pacbio_ccs.fastq.gz'
+        'reads/{group}/pacbio/merged_ccs.fastq.gz'
     shell:
         'cat {input} > {output}'
 
@@ -212,7 +212,7 @@ rule pacbio_pbsim_clr:
         prefix = 'reads/{group}/pacbio/{sample}_clr',
         seed = 100
     conda:
-        'envs/pbsim.yaml'
+        config['softparams']['conda']['pbsim']
     shell:
         'pbsim --data-type CLR --seed {params.seed} --depth {params.cover} --model_qc {input.model} --prefix {params.prefix} {input.reference}'
 

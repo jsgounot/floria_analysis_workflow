@@ -20,7 +20,7 @@ rule mummer_nucmer:
     threads:
         4
     conda:
-        'envs/mummer.yaml'
+        config['softparams']['conda']['mummer']
     shell:
         'nucmer --maxmatch -t {threads} -p {params.prefix} {input.ref} {input.query}'
 
@@ -30,7 +30,7 @@ rule mummer_delta_filter:
     output:
         'stats/assemblies/{group}/{basename}/mummer/{idx}.qdelta'
     conda:
-        'envs/mummer.yaml'
+        config['softparams']['conda']['mummer']
     shell:
         'delta-filter -q {input} > {output}'
 
@@ -40,7 +40,7 @@ rule mummer_show_coords:
     output:
         'stats/assemblies/{group}/{basename}/mummer/{idx}.qcoords'
     conda:
-        'envs/mummer.yaml'
+        config['softparams']['conda']['mummer']
     shell:
         'show-coords -qHTlc {input} > {output}'
 
@@ -85,7 +85,7 @@ rule mummer_nucmer_best:
     threads:
         4
     conda:
-        'envs/mummer.yaml'
+        config['softparams']['conda']['mummer']
     shell:
         'nucmer --maxmatch -t {threads} -p {params.prefix} {input.ref} {input.query}'
 
@@ -97,7 +97,7 @@ rule mummer_dnadiff_best:
     params:
         prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.best'
     conda:
-        'envs/mummer.yaml'
+        config['softparams']['conda']['mummer']
     shell:
         'dnadiff -p {params.prefix} -d {input}'
 

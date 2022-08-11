@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
 
-# snakemake -s single_species_synthetic.snk --configfile synthetic.json --use-conda --cores 2 --resources ncbi_load=1 --attempt 3  --directory res_sss
+# Example command line
+# snakemake -s single_species_synthetic.snk --configfile synthetic.json --use-conda --cores 24 --resources ncbi_load=1 --attempt 3 --keep-going --directory res_sss
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
+# GROUPS SETTING
 
 GROUPS = set(config)
 SUBGROUP = [
@@ -19,6 +21,15 @@ SUBGROUP = [
 
     'none.strainxpress.regular'
     ]
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
+# CONDA CONFIGURATION
+
+fname = workflow.source_path('condaenvs.json')
+with open(fname) as f:
+    config['softparams'] = {'conda': json.load(f)}
+
+# --------------------------------------------------------------------------------------------------------------------------------------------
 
 rule all:
     input:
@@ -52,11 +63,11 @@ module rm:
 
 use rule * from rm as rm_*
 
-module oms:
-    snakefile: "workflow/opera_assembly.snk"
+module ra:
+    snakefile: "workflow/reads_assembly.snk"
     config: config
 
-use rule * from oms as oms_*
+use rule * from ra as ra_*
 
 module vc:
     snakefile: "workflow/variants_calling.snk"

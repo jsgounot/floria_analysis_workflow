@@ -7,7 +7,7 @@ rule minimap2_pacbio_clr:
     output:
         'mapping/{group}/{refori}.pacbio_clr.bam'
     conda:
-        'envs/minimap2.yaml'
+        config['softparams']['conda']['minimap2']
     log:
         'logs/{group}/minimap2.{refori}.pacbio.log'
     threads:
@@ -22,7 +22,7 @@ rule minimap2_nanopore:
     output:
         'mapping/{group}/{refori}.nanopore.bam'
     conda:
-        'envs/minimap2.yaml'
+        config['softparams']['conda']['minimap2']
     log:
         'logs/{group}/minimap2.{refori}.nanopore.log'
     threads:
@@ -38,7 +38,7 @@ rule minimap2_illumina:
     output:
         'mapping/{group}/{refori}.illumina.bam'
     conda:
-        'envs/minimap2.yaml'
+        config['softparams']['conda']['minimap2']
     log:
         'logs/{group}/minimap2.{refori}.illumina.log'
     threads:
@@ -52,6 +52,6 @@ rule index_bam:
     output:
         'mapping/{group}/{refori}.{kind}.bam.bai'
     conda:
-        'envs/minimap2.yaml'
+        config['softparams']['conda']['minimap2']
     shell:
         'samtools index {input}'

@@ -1,0 +1,170 @@
+OPERAMS = 'perl /home/ubuntu/OPERA-MS/OPERA-MS.pl'
+
+rule uncompress_long:
+    input:
+        'reads/{group}/nanopore/merged.fastq.gz'
+    output:
+        temp('reads/{group}/nanopore/merged.fastq')
+    shell:
+        'gunzip -c {input} > {output}'
+
+rule operams:
+    input:
+        sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
+        sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz',
+        lr = 'reads/{group}/nanopore/merged.fastq'
+    params:
+        executable = OPERAMS
+    output:
+        outdir = directory('assembly/operams/{group}'),
+        fasta = protected('assembly/operams/{group}/contigs.polished.fasta')
+    conda:
+        config['softparams']['conda']['operams']
+    log:
+        'logs/{group}/assembly.operams.log'
+    threads:
+        16
+    shell:
+        '({params.executable} --short-read1 {input.sr1} --short-read2 {input.sr2} --long-read {input.lr} --out-dir {output.outdir} --polishing --num-processors {threads})  2> {log}'
+
+rule link_operams:
+    input:
+        rules.operams.output.fasta
+    output:
+        'references/used/{group}/refmap/operams.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+rule flye_nanopore:
+    input:
+        'reads/{group}/nanopore/merged.fastq.gz'
+    output: 
+        outdir = directory('assembly/flye/{group}/nanopore'),
+        fasta = protected('assembly/flye/{group}/nanopore/assembly.fasta')
+    conda:   
+        config['softparams']['conda']['flye']
+    log:    
+        'logs/{group}/assembly.flye_nanopore.log'
+    threads:
+        16
+    params:
+        mgsize = lambda wc: config[wc.group]['assembly']['fly_mg_size']
+    shell:
+        'flye --meta --min-overlap 3000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --nano-raw {input} &> {log}'
+
+rule link_flye_nanopore:
+    input:
+        rules.flye_nanopore.output.fasta
+    output:
+        'references/used/{group}/refmap/flye_nanopore.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+rule flye_pacbio:
+    input:
+        'reads/{group}/pacbio/merged_{rtype}.fastq.gz'
+    output: 
+        outdir = directory('assembly/flye/{group}/pacbio/{rtype}'),
+        fasta = protected('assembly/flye/{group}/pacbio/{rtype}/assembly.fasta')
+    conda:   
+        config['softparams']['conda']['flye']
+    log:    
+        'logs/{group}/assembly.flye_pacbio.{rtype}.log'
+    threads:
+        16
+    params:
+        mgsize = lambda wc: config[wc.group]['assembly']['fly_mg_size']
+    shell:
+        'flye --meta --min-overlap 3000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --pacbio-raw {input} 2> {log}'
+
+rule link_flye_pacbio:
+    input:
+        rules.flye_pacbio.output.fasta
+    output:
+        'references/used/{group}/refmap/flye_pacbio.{rtype}.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+rule canu_nanopore:
+    input:
+        'reads/{group}/nanopore/merged.fastq.gz'
+    output: 
+        outdir = directory('assembly/canu/{group}/nanopore'),
+        fasta = protected('assembly/canu/{group}/nanopore/assembly.contigs.fasta')
+    conda:   
+        config['softparams']['conda']['canu']
+    log:    
+        'logs/{group}/assembly.canu_nanopore.log'
+    threads:
+        16
+    params:
+        mgsize = lambda wc: config[wc.group]['assembly']['canu_mg_size']
+    shell:
+        'canu -p assembly -d {output.directory} genomeSize={params.mgsize} maxThreads={threads} useGrid=false -nanopore {input.reads} 2> {log}'
+
+rule link_canu_nanopore:
+    input:
+        rules.canu_nanopore.output.fasta
+    output:
+        'references/used/{group}/refmap/canu_nanopore.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+rule canu_pacbio:
+    input:
+        'reads/{group}/pacbio/merged_{rtype}.fastq.gz'
+    output: 
+        outdir = directory('assembly/canu/{group}/pacbio/{rtype}'),
+        fasta = protected('assembly/canu/{group}/pacbio/{rtype}/assembly.contigs.fasta')
+    conda:   
+        config['softparams']['conda']['canu']
+    log:    
+        'logs/{group}/assembly.canu_pacbio.{rtype}.log'
+    threads:
+        16
+    params:
+        mgsize = lambda wc: config[wc.group]['assembly']['canu_mg_size']
+    shell:
+        'canu -p assembly -d {output.directory} genomeSize={params.mgsize} maxThreads={threads} useGrid=false -pacbio {input.reads} 2> {log}'
+
+rule link_canu_pacbio:
+    input:
+        rules.canu_pacbio.output.fasta
+    output:
+        'references/used/{group}/refmap/canu_pacbio.{rtype}.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+rule megahit_paired:
+    input:
+        r1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
+        r2 = 'reads/{group}/illumina/merged/R2.fastq.gz'
+    output:
+        outdir = directory('assembly/megahit/{group}/'),
+        fasta = protected('assembly/megahit/{group}/final.contigs.fa')   
+    params:
+        # In this version I remove intermediate files which took a lot of space
+        interm = 'assembly/megahit/{group}/intermediate_contigs'
+    conda:
+        config['softparams']['conda']['megahit']
+    threads:
+        16
+    log:
+        'logs/{group}/assembly.megahit_paired.log'
+    shell:
+        'megahit -1 {input.r1} -2 {input.r2} -o {output.outdir} -t {threads} && rm -rf {params.interm} 2> {log}'
+
+rule link_megahit:
+    input:
+        rules.megahit_paired.output.fasta
+    output:
+        'references/used/{group}/refmap/megahit.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'

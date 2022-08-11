@@ -79,32 +79,32 @@
 
 	"zb_D6331": {
 		"B1109": {
-				"refpath": "/mnt/volume1/data/D6331/Escherichia_coli_B1109.fasta",
+				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_B1109.fasta",
 				"mapping_ref": "True",
 				"quantity": 10,
 				"circular": "true",
 				"nanopore": "good"
 			},
 		"B3008": {
-				"refpath": "/mnt/volume1/data/D6331/Escherichia_coli_B3008.fasta",
+				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_B3008.fasta",
 				"quantity": 10,
 				"circular": "true",
 				"nanopore": "good"
 			},
 		"B766": {
-				"refpath": "/mnt/volume1/data/D6331/Escherichia_coli_B766.fasta",
+				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_B766.fasta",
 				"quantity": 10,
 				"circular": "true",
 				"nanopore": "good"
 			},
 		"JM109": {
-				"refpath": "/mnt/volume1/data/D6331/Escherichia_coli_JM109.fasta",
+				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_JM109.fasta",
 				"quantity": 10,
 				"circular": "true",
 				"nanopore": "good"
 			},
 		"B2207": {
-				"refpath": "/mnt/volume1/data/D6331/Escherichia_coli_b2207.fasta",
+				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_b2207.fasta",
 				"quantity": 10,
 				"circular": "true",
 				"nanopore": "good"

@@ -6,7 +6,7 @@ rule lofreq:
     output:
         'vcalling/{group}/{refori}.{readtype}.lofreq.vcf'
     conda:
-        'envs/lofreq.yaml'
+        config['softparams']['conda']['lofreq']
     log:
         'logs/{group}/vcalling.{refori}.{readtype}.lofreq.log'
     benchmark:
@@ -23,7 +23,7 @@ rule longshot:
     output:
         'vcalling/{group}/{refori}.{readtype}.longshot.vcf'
     conda:
-        'envs/longshot.yaml'
+        config['softparams']['conda']['longshot']
     log:
         'logs/{group}/vcalling.{refori}.{readtype}.longshot.log'
     benchmark:

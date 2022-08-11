@@ -99,7 +99,7 @@ rule wtdbg2:
         preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R',
         of = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}'
     conda:
-        'envs/wtdbg2.yaml'
+        config['softparams']['conda']['wtdbg2']
     log:
         'logs/wtdbg2/wtdbg2.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.log'
     benchmark:
@@ -115,7 +115,7 @@ rule wtpoa:
     output:
         'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.ctg.fa'
     conda:
-        'envs/wtdbg2.yaml'
+        config['softparams']['conda']['wtdbg2']
     log:
         'logs/wtdbg2/wtpoa.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.log'
     benchmark:

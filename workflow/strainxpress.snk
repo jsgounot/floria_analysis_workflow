@@ -15,14 +15,14 @@ rule strainxpress_fast:
         fastq = rules.interleave_reads.output
     output:
         directory = directory('phasing/strainxpress/{group}/fast'),
-        scaffold  = 'phasing/strainxpress/{group}/fast/stageb/contigs.stage_b.fasta',
+        scaffold  = protected('phasing/strainxpress/{group}/fast/stageb/contigs.stage_b.fasta'),
         mapres = temp('phasing/strainxpress/{group}/fast/all_reads_sort.map')
     params:
         executable = STRAINXPRESS,
         insertsize = 300,
         readlength = 150
     conda:
-        'envs/strainxpress.yaml'
+        config['softparams']['conda']['strainxpress']
     benchmark:
         'benchmarks/{group}.strainxpress.fast.txt'
     threads:
@@ -37,14 +37,14 @@ rule strainxpress_regular:
         fastq = rules.interleave_reads.output
     output:
         directory = directory('phasing/strainxpress/{group}/regular'),
-        scaffold  = 'phasing/strainxpress/{group}/regular/stageb/contigs.stage_b.fasta',
+        scaffold  = protected('phasing/strainxpress/{group}/regular/stageb/contigs.stage_b.fasta'),
         mapres = temp('phasing/strainxpress/{group}/regular/all_reads_sort.map')
     params:
         executable = STRAINXPRESS,
         insertsize = 300,
         readlength = 150
     conda:
-        'envs/strainxpress.yaml'
+        config['softparams']['conda']['strainxpress']
     benchmark:
         'benchmarks/{group}.strainxpress.regular.txt'
     threads:

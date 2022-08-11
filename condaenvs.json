@@ -1,0 +1,19 @@
+{
+	"wtdbg2": "envs/wtdbg2.yaml",
+	"mummer": "envs/mummer.yaml",
+	"minimap2": "envs/minimap2.yaml",
+	"badread": "envs/badread.yaml",
+	"pbsim": "envs/pbsim.yaml",
+	"art": "envs/art.yaml",
+	"operams": "envs/operams.yaml",
+	"flye": "envs/flye.yaml",
+	"canu": "envs/canu.yaml",
+	"megahit": "envs/megahit.yaml",
+	"entrez": "envs/entrez.yaml",
+	"fastani": "envs/fastani.yaml",
+	"mummer": "envs/mummer.yaml",
+	"longshot": "envs/longshot.yaml",
+	"lofreq": "envs/lofreq.yaml",
+	"strainxpress": "envs/strainxpress.yaml",
+	"strainberry": "envs/strainberry.yaml"
+}

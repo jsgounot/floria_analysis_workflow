@@ -13,11 +13,11 @@ rule strainberry_illumina:
         bai   = 'mapping/{group}/{refori}.illumina.bam.bai'
     output:
         directory = directory('phasing/strainberry/{group}/{refori}/illumina'),
-        scaffold  = 'phasing/strainberry/{group}/{refori}/illumina/assembly.scaffolds.fa'
+        scaffold  = protected('phasing/strainberry/{group}/{refori}/illumina/assembly.scaffolds.fa')
     params:
         executable = STRAINBERRY
     conda:
-        'envs/strainberry.yaml'
+        config['softparams']['conda']['strainberry']
     benchmark:
         'benchmarks/{group}/strainberry.{refori}.illumina.txt'
     threads:
@@ -35,11 +35,11 @@ rule strainberry_nanopore:
         bai   = 'mapping/{group}/{refori}.nanopore.bam.bai'
     output:
         directory = directory('phasing/strainberry/{group}/{refori}/nanopore'),
-        scaffold  = 'phasing/strainberry/{group}/{refori}/nanopore/assembly.scaffolds.fa'
+        scaffold  = protected('phasing/strainberry/{group}/{refori}/nanopore/assembly.scaffolds.fa')
     params:
         executable = STRAINBERRY
     conda:
-        'envs/strainberry.yaml'
+        config['softparams']['conda']['strainberry']
     benchmark:
         'benchmarks/{group}/strainberry.{refori}.nanopore.txt'
     threads:
