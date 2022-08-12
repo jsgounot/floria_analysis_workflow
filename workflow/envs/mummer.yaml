@@ -3,12 +3,4 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - _libgcc_mutex=0.1=main
-  - _openmp_mutex=4.5=1_gnu
-  - libgcc-ng=9.3.0=h5101ec6_17
-  - libgomp=9.3.0=h5101ec6_17
-  - libstdcxx-ng=9.3.0=hd4cf53a_17
-  - mummer=3.23=pl5262h1b792b2_12
-  - mummer4=4.0.0rc1=pl5262h1b792b2_1
-  - perl=5.26.2=h14c3975_0
-prefix: /home/ubuntu/miniconda3/envs/mummer
+  - mummer4=4.0.0beta2

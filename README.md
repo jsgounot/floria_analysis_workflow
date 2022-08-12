@@ -8,9 +8,15 @@ Workflows are based on [Snakemake](https://snakemake.readthedocs.io/en/stable/) 
 * Conda 4.11.0
 * Snakemake 6.15.5
 
-Most of the softwares used in the pipeline will be automatically downloaded by snakemake with conda during first launch following recipies found in `workflow/envs`. Only exceptions are Strainberry and Glopp (**need to added to bioconda once we're done**) which need to be hardcoded in `workflow/strainberry.snk` and  `workflow/glopp.snk`.
-
 Pipeline should take around ~ 24h with 16 CPUs. Runtime is not linear to CPUs count since some part of the pipeline such are variant callers are not multi-threaded.
+
+## Conda environments and software paths
+
+Most of the softwares used in the pipeline will be automatically downloaded by snakemake with conda during first launch following recipies found in `workflow/envs`. If you want to use your own / different conda environements, you can change the conda environment associated to a software call in the `condaenvs.json` file.
+
+For people with files number quota, a merged version of most of the environments (excluding `operams`, `strainberry` and `strainxpress`) is available in `workflow/envs/` and can be used to replace most of the environments yaml files in the `condaenvs.json`. 
+
+**IMPORTANT**: For some softwares, you will need to install them locally: [strainberry](https://github.com/rvicedomini/strainberry), [strainxpress](https://github.com/kangxiongbin/StrainXpress), [glopp](https://github.com/bluenote-1577/glopp) and [operams](https://github.com/CSB5/OPERA-MS). **You can install just the ones you need**, and add the executable path in `softpaths.json`.
 
 ## Synthetic dataset
 

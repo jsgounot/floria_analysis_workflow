@@ -30,6 +30,8 @@ rule glopp_illumina:
         outdir = directory('phasing/glopp/{group}/{refori}/illumina/{vcaller}')
     benchmark:
         'benchmarks/{group}.glopp.{refori}.illumina.{vcaller}.txt'
+    conda:
+        config['softparams']['conda']['glopp']
     threads:
         16
     log:
@@ -50,6 +52,8 @@ rule glopp_nanopore:
         outdir = directory('phasing/glopp/{group}/{refori}/nanopore/{vcaller}')
     benchmark:
         'benchmarks/{group}.glopp.{refori}.nanopore.{vcaller}.txt'
+    conda:
+        config['softparams']['conda']['glopp']
     threads:
         16
     log:
@@ -71,6 +75,8 @@ rule glopp_hybrid:
         outdir = directory('phasing/glopp/{group}/{refori}/hybrid/{vcaller}')
     benchmark:
         'benchmarks/{group}.glopp.{refori}.hybrid.{vcaller}.txt'
+    conda:
+        config['softparams']['conda']['glopp']
     threads:
         16
     log:

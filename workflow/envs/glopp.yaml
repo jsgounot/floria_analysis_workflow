@@ -1,0 +1,5 @@
+name: glopp
+channels:
+  - conda-forge
+dependencies:
+  - rust

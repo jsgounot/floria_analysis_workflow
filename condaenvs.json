@@ -15,5 +15,6 @@
 	"longshot": "envs/longshot.yaml",
 	"lofreq": "envs/lofreq.yaml",
 	"strainxpress": "envs/strainxpress.yaml",
-	"strainberry": "envs/strainberry.yaml"
+	"strainberry": "envs/strainberry.yaml",
+	"glopp": "envs/glopp.yaml"
 }
