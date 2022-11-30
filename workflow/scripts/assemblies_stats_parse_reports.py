@@ -2,6 +2,7 @@ import os
 from Bio import SeqIO
 
 import pandas as pd
+import numpy as np
 
 def parse_dnadiff_report(fname):
     res = {}
@@ -33,7 +34,18 @@ def fasta_n50(fname, gsize=0):
         if cumsum > mid :
             return length
 
+def fill_empty(result):
+    result['seq_num']  = 0
+    result['ref_size'] = result['asm_size'] = result['n50'] = np.nan
+    result['unaligned_ref_bases'], result['unaligned_ref'] = np.nan, 100
+    result['unaligned_asm_bases'], result['unaligned_asm'] = np.nan, 100
+    result['ani'] = result['aligned_ref_bases'] = result['aligned_asm_bases'] = 0
+    result['dup_ratio'] = result['dup_bases'] = result['cmp_bases'] = np.nan
+    result['snps'] = result['inversions'] = result['relocations'] = result['transloc'] = np.nan
+    return result
+
 def parse_mummer_outputs(report, reflist):
+
     prefix = report[:-7]
     result = {}
 
@@ -41,11 +53,14 @@ def parse_mummer_outputs(report, reflist):
     refpath = reflist[index]
     refname = os.path.splitext(os.path.basename(refpath))[0]
 
-    report = parse_dnadiff_report(prefix + '.report')
-
     result['refidx'] = index
     result['refpath'] = refpath
     result['refbname'] = refname
+
+    isempty = os.stat(report).st_size == 0
+    if isempty: return fill_empty(result)
+
+    report = parse_dnadiff_report(prefix + '.report')
 
     result['seq_num']  = int(report['TotalSeqs'][2])
     result['ref_size'] = int(report['TotalBases'][1])
@@ -63,8 +78,8 @@ def parse_mummer_outputs(report, reflist):
     result['aligned_asm_bases'] = int(report['AlignedBases'][2].split('(')[0])
     result['dup_ratio'] = result['aligned_asm_bases'] / result['aligned_ref_bases']
     
-    result['dup_bases'] = dnadiff_dup_bases(prefix + '.qdiff')
-    result['cmp_bases'] = dnadiff_dup_bases(prefix + '.rdiff')
+    result['dup_bases'] = dnadiff_dup_bases(prefix + '.full.qdiff')
+    result['cmp_bases'] = dnadiff_dup_bases(prefix + '.full.rdiff')
     
     result['snps']        = int(report['TotalSNPs'][1])
     result['inversions']  = int(report['Inversions'][2])

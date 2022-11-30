@@ -4,3 +4,5 @@ channels:
   - defaults
 dependencies:
   - mummer4=4.0.0beta2
+  - pandas
+  - pybedtools 

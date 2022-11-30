@@ -1,0 +1,95 @@
+{
+	"ecoli_seed50": {
+			"ecoli_k12": {
+				"ncbinuc": "NC_000913.3",
+				"mapping_ref": "True",
+				"quantity": 50,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"ecoli_h5": {
+				"ncbinuc": "CP010169.1",
+				"quantity": 10,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"ecoli_O157": {
+				"ncbinuc": "NC_002695.2",
+				"quantity": 70,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"ecoli_w": {
+				"ncbinuc": "NC_017635.1",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			}
+	},
+	"ecoli_seed60": {
+			"ecoli_k12": {
+				"ncbinuc": "NC_000913.3",
+				"mapping_ref": "True",
+				"quantity": 50,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 60
+			},
+			"ecoli_h5": {
+				"ncbinuc": "CP010169.1",
+				"quantity": 10,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 60
+			},
+			"ecoli_O157": {
+				"ncbinuc": "NC_002695.2",
+				"quantity": 70,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 60
+			},
+			"ecoli_w": {
+				"ncbinuc": "NC_017635.1",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 60
+			}
+	},
+	"ecoli_seed70": {
+			"ecoli_k12": {
+				"ncbinuc": "NC_000913.3",
+				"mapping_ref": "True",
+				"quantity": 50,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 70
+			},
+			"ecoli_h5": {
+				"ncbinuc": "CP010169.1",
+				"quantity": 10,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 70
+			},
+			"ecoli_O157": {
+				"ncbinuc": "NC_002695.2",
+				"quantity": 70,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 70
+			},
+			"ecoli_w": {
+				"ncbinuc": "NC_017635.1",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 70
+			}
+	}
+}

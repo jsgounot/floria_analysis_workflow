@@ -27,7 +27,7 @@ rule nanopore_badread_good:
         chimeras = 0,
         start_adapter_seq = '""',
         end_adapter_seq = '""',
-        seed = 100
+        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
     conda:
         config['softparams']['conda']['badread']
     log:
@@ -51,7 +51,7 @@ rule nanopore_badread_bad:
         junk_reads = 5,
         random_reads = 5,
         chimeras = 10,
-        seed = 100
+        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
     conda:
         config['softparams']['conda']['badread']
     log:
@@ -60,6 +60,30 @@ rule nanopore_badread_bad:
         '(badread simulate --reference {input} --quantity {params.quantity} --error_model {params.error_model} --identity {params.identity} \
             --glitches {params.glitches} --junk_reads {params.junk_reads} --random_reads {params.random_reads} --chimeras {params.chimeras} \
             --seed {params.seed} | gzip > {output}) 2> {log}'
+
+rule nanopore_badread_average:
+    input:
+        rules.badread_make_ref.output
+    output:
+        'reads/{group}/nanopore/{sample}.average.fastq.gz'
+    params:
+        quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
+        qscore_model = 'nanopore2020',
+        error_model = 'nanopore2020',
+        identity = '87.5,97.5,5',
+        glitches = '1000,25,25',
+        junk_reads = 1,
+        random_reads = 1,
+        chimeras = 1,
+        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
+    conda:
+        config['softparams']['conda']['badread']
+    log:
+        'logs/{group}/badread.{sample}.average.log'
+    shell:
+        '(badread simulate --reference {input} --quantity {params.quantity} --error_model {params.error_model} --qscore_model {params.qscore_model} \
+        --identity {params.identity} --glitches {params.glitches} --junk_reads {params.junk_reads} --random_reads {params.random_reads} \
+         --chimeras {params.chimeras} --seed {params.seed} | gzip > {output}) 2> {log}'
 
 rule nanopore_badread_readsid_correction:
     input:
@@ -110,7 +134,7 @@ rule illumina_art_run:
         r2 = 'reads/{group}/illumina/{sample}_R2.fq'
     params:
         instrument = 'HS25',
-        seed = 100,
+        seed = lambda wc: str(config[wc.group][wc.sample]['seed']),
         length = 150,
         meansize = 300,
         std = 10,
@@ -139,7 +163,7 @@ def get_illumina_reads(wildcards):
         group=group, sample=samples, ridx=wildcards.ridx
         )
 
-rule merge_reads:
+rule merge_illumina:
     input:
         get_illumina_reads
     output:
@@ -149,6 +173,27 @@ rule merge_reads:
 
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
+# NOTE REGARDING PBSIM AND PBSIM2
+# For an unexplained reason, pbsim output is not really high quality even with a CCS model
+# this lead to exponential number of haplotypes when running phasing, which is a bit weird
+# I also implemented pbsim2 but this version does not offer HiFi reads (P6C4 are regular pacbio reads)
+# I therefore switch to a custom bbmap algorithm as proposed in some paper and github rep
+
+rule pacbio_pbsim_download_model:
+    output:
+        'external_data/pbsim/{model_name}'
+    params:
+        url = 'https://raw.githubusercontent.com/pfaucon/PBSIM-PacBio-Simulator/master/data/{model_name}'
+    shell:
+        'wget {params.url} -O {output}'
+
+rule pacbio_pbsim2_download_model:
+    output:
+        'external_data/pbsim2/{model_name}'
+    params:
+        url = 'https://raw.githubusercontent.com/yukiteruono/pbsim2/master/data/{model_name}'
+    shell:
+        'wget {params.url} -O {output}'
 
 rule pacbio_pbsim_prepare:
     input:
@@ -157,87 +202,97 @@ rule pacbio_pbsim_prepare:
         fasta = temp('reads/{group}/pacbio/{sample}.fasta')
     run:
         shell('echo ">{wildcards.sample}" > {output.fasta}')
-        shell('grep -v "^>" {input.reference} >> {output.fasta}')
+        shell('grep -v "^>" {input} >> {output.fasta}')
 
 rule pacbio_pbsim_ccs:
     input:
         reference = 'reads/{group}/pacbio/{sample}.fasta',
-        model = '/home/ubuntu/pbsim/PBSIM-PacBio-Simulator/data/model_qc_ccs'
+        model = 'external_data/pbsim/model_qc_ccs'
     output:
         fastq = 'reads/{group}/pacbio/{sample}_ccs_0001.fastq'
     params:
-        cover = lambda wc: config[wc.group][wc.sample]['pacbio']['quantity'],
+        cover = lambda wc: config[wc.group][wc.sample]['quantity'],
         prefix = 'reads/{group}/pacbio/{sample}_ccs',
-        seed = 100
+        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
     conda:
         config['softparams']['conda']['pbsim']
     shell:
         'pbsim --data-type CCS --seed {params.seed} --depth {params.cover} --model_qc {input.model} --prefix {params.prefix} {input.reference}'
 
-rule pacbio_pbsim_ccs_comp:
-    input:
-        'reads/{group}/pacbio/{sample}_ccs_0001.fastq'
-    output:
-        'reads/{group}/pacbio/{sample}_ccs_0001.fastq.gz'
-    threads:
-        4
-    shell:
-        'pigz -9 -p {threads} {input}'
-
-def get_pbsim_reads_css(wildcards):
-    group = wildcards.group
-    samples = [sample for sample in config[group] if sample != 'internal']
-    return expand(
-        'reads/{group}/pacbio/{sample}_ccs_0001.fastq.gz',
-        group=group, sample=samples
-        )
-
-rule merge_pacbio_pbsim_ccs:
-    input:
-        get_pbsim_reads_css
-    output:
-        'reads/{group}/pacbio/merged_ccs.fastq.gz'
-    shell:
-        'cat {input} > {output}'
-
-
-rule pacbio_pbsim_clr:
+rule pacbio_pbsim2:
     input:
         reference = 'reads/{group}/pacbio/{sample}.fasta',
-        model = '/home/ubuntu/pbsim/PBSIM-PacBio-Simulator/data/model_qc_clr'
+        model = 'external_data/pbsim2/P6C4.model'
     output:
-        fastq = 'reads/{group}/pacbio/{sample}_clr_0001.fastq'
-    params:
-        cover = lambda wc: config[wc.group][wc.sample]['pacbio']['quantity'],
-        prefix = 'reads/{group}/pacbio/{sample}_clr',
-        seed = 100
+        fastq = 'reads/{group}/pacbio/{sample}_p6c4_0001.fastq'
     conda:
-        config['softparams']['conda']['pbsim']
+        config['softparams']['conda']['pbsim2']
+    params:
+        depth = lambda wc: config[wc.group][wc.sample]['quantity'],
+        prefix = 'reads/{group}/pacbio/{sample}_p6c4',
+        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
     shell:
-        'pbsim --data-type CLR --seed {params.seed} --depth {params.cover} --model_qc {input.model} --prefix {params.prefix} {input.reference}'
+        'pbsim --seed {params.seed} --depth {params.depth} --hmm_model {input.model} --prefix {params.prefix} {input.reference}'
 
-rule pacbio_pbsim_clr_comp:
+# https://github.com/chhylp123/hifiasm/issues/33
+# I keep the output format similar to pbsim for compatibility issue
+rule pacbio_bbmap:
     input:
-        rules.pacbio_pbsim_clr.output
+        reference = 'reads/{group}/pacbio/{sample}.fasta'
     output:
-        'reads/{group}/pacbio/{sample}_clr_0001.fastq.gz'
+        fastq = 'reads/{group}/pacbio/{sample}_bbmap_0001.fastq'
+    params:
+        depth = lambda wc: config[wc.group][wc.sample]['quantity'],
+        minlength = 9000,
+        midlength = 10000,
+        maxlength = 12000,
+        seed = lambda wc: str(config[wc.group][wc.sample]['seed']),
+        pbmin = 0.001,
+        pbmax = 0.01,
+        add = 'build=1 ow=t illuminanames=t addslash=t pacbio=t paired=f gaussianlength=t'
+    log:
+        'logs/{group}/bbmap.randomreads.hifi.{sample}.log'
+    conda:
+        config['softparams']['conda']['bbmap']
+    shell:
+        'randomreads.sh seed={params.seed} ref={input} pbmin={params.pbmin} pbmax={params.pbmax} \
+        coverage={params.depth} minlength={params.minlength} midlength={params.midlength} \
+        maxlength={params.maxlength} out={output} {params.add}  2> {log}'
+
+rule pacbio_comp:
+    input:
+        'reads/{group}/pacbio/{sample}_{model}_0001.fastq'
+    output:
+        'reads/{group}/pacbio/{sample}_{model}_0001.fastq.gz'
     threads:
         4
     shell:
         'pigz -9 -p {threads} {input}'
 
-def get_pbsim_reads_clr(wildcards):
+rule pacbio_readsid_correction:
+    input:
+        rules.pacbio_comp.output
+    output:
+        'reads/{group}/pacbio/{sample}_{model}_0001.rids_corrected.fastq.gz'
+    params:
+        sample = lambda wc: wc.sample
+    script:
+        'scripts/rename_fastqids.py'
+
+def get_pacbio_reads(wildcards):
     group = wildcards.group
     samples = [sample for sample in config[group] if sample != 'internal']
     return expand(
-        'reads/{group}/pacbio/{sample}_clr_0001.fastq.gz',
+        'reads/{group}/pacbio/{sample}_{{model}}_0001.rids_corrected.fastq.gz',
         group=group, sample=samples
         )
 
-rule merge_pacbio_pbsim_clr:
+rule merge_pacbio:
     input:
-        get_pbsim_reads_clr
+        get_pacbio_reads
     output:
-        'reads/{group}/pacbio/merged_clr.fastq.gz'
+        'reads/{group}/pacbio/merged_{model}.fastq.gz'
     shell:
         'cat {input} > {output}'
+
+

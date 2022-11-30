@@ -1,5 +1,3 @@
-STRAINXPRESS = '/home/ubuntu/strainxpress/StrainXpress/scripts/strainxpress.py'
-
 rule interleave_reads:
     input:
         sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
@@ -12,13 +10,13 @@ rule interleave_reads:
 
 rule strainxpress_fast:
     input:
-        fastq = rules.interleave_reads.output
+        fastq = rules.interleave_reads.output,
+        exe = config['softparams']['soft']['strainxpress']
     output:
         directory = directory('phasing/strainxpress/{group}/fast'),
         scaffold  = protected('phasing/strainxpress/{group}/fast/stageb/contigs.stage_b.fasta'),
         mapres = temp('phasing/strainxpress/{group}/fast/all_reads_sort.map')
     params:
-        executable = STRAINXPRESS,
         insertsize = 300,
         readlength = 150
     conda:
@@ -30,17 +28,17 @@ rule strainxpress_fast:
     log:
         'logs/{group}/strainxpress.fast.log'
     shell:
-        '(cd {output.directory} && python {params.executable} -fq ../interleaved.fastq -t {threads} -insert_size {params.insertsize} -average_read_len {params.readlength} -fast) 2> {log}'
+        '(cd {output.directory} && python {input.exe} -fq ../interleaved.fastq -t {threads} -insert_size {params.insertsize} -average_read_len {params.readlength} -fast) 2> {log}'
 
 rule strainxpress_regular:
     input:
-        fastq = rules.interleave_reads.output
+        fastq = rules.interleave_reads.output,
+        exe = config['softparams']['soft']['strainxpress']
     output:
         directory = directory('phasing/strainxpress/{group}/regular'),
         scaffold  = protected('phasing/strainxpress/{group}/regular/stageb/contigs.stage_b.fasta'),
         mapres = temp('phasing/strainxpress/{group}/regular/all_reads_sort.map')
     params:
-        executable = STRAINXPRESS,
         insertsize = 300,
         readlength = 150
     conda:
@@ -52,7 +50,7 @@ rule strainxpress_regular:
     log:
         'logs/{group}/strainxpress.regular.log'
     shell:
-        '(cd {output.directory} && python {params.executable} -fq ../interleaved.fastq -t {threads} -insert_size {params.insertsize} -average_read_len {params.readlength}) 2> {log}'
+        '(cd {output.directory} && python {input.exe} -fq ../interleaved.fastq -t {threads} -insert_size {params.insertsize} -average_read_len {params.readlength}) 2> {log}'
 
 rule strainxpress_compress:
     input:

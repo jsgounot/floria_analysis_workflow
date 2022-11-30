@@ -5,25 +5,29 @@
 				"mapping_ref": "True",
 				"quantity": 50,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 			"ecoli_h5": {
 				"ncbinuc": "CP010169.1",
 				"quantity": 10,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 			"ecoli_O157": {
 				"ncbinuc": "NC_002695.2",
 				"quantity": 70,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 			"ecoli_w": {
 				"ncbinuc": "NC_017635.1",
 				"quantity": 30,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			}
 		},
 
@@ -33,25 +37,29 @@
 				"mapping_ref": "True",
 				"quantity": 30,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 			"ecoli_h5": {
 				"ncbinuc": "CP010169.1",
 				"quantity": 30,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 			"ecoli_O157": {
 				"ncbinuc": "NC_002695.2",
 				"quantity": 30,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 			"ecoli_w": {
 				"ncbinuc": "NC_017635.1",
 				"quantity": 30,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			}
 		},
 
@@ -61,53 +69,61 @@
 				"mapping_ref": "True",
 				"quantity": 30,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 			"kleb_NC": {
 				"ncbiasbly": "ASM1990030v1",
 				"quantity": 70,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 			"kleb_PA": {
 				"ncbiasbly": "ASM1990032v1",
 				"quantity": 10,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			}
 		},
 
 	"zb_D6331": {
 		"B1109": {
-				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_B1109.fasta",
+				"refpath": "/mnt/volume1/strainphasing/data/D6331/Escherichia_coli_B1109.fasta",
 				"mapping_ref": "True",
 				"quantity": 10,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 		"B3008": {
-				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_B3008.fasta",
+				"refpath": "/mnt/volume1/strainphasing/data/D6331/Escherichia_coli_B3008.fasta",
 				"quantity": 10,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 		"B766": {
-				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_B766.fasta",
+				"refpath": "/mnt/volume1/strainphasing/data/D6331/Escherichia_coli_B766.fasta",
 				"quantity": 10,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 		"JM109": {
-				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_JM109.fasta",
+				"refpath": "/mnt/volume1/strainphasing/data/D6331/Escherichia_coli_JM109.fasta",
 				"quantity": 10,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			},
 		"B2207": {
-				"refpath": "/home/users/astar/gis/ericejs/scratch/projects/glopp/data/refgenomes/ecoli/D6331/Escherichia_coli_b2207.fasta",
+				"refpath": "/mnt/volume1/strainphasing/data/D6331/Escherichia_coli_b2207.fasta",
 				"quantity": 10,
 				"circular": "true",
-				"nanopore": "good"
+				"nanopore": "average",
+				"seed": 50
 			}
 		}
 }

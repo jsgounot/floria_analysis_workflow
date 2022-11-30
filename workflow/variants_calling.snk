@@ -10,7 +10,7 @@ rule lofreq:
     log:
         'logs/{group}/vcalling.{refori}.{readtype}.lofreq.log'
     benchmark:
-        'benchmarks/{group}.vcalling.{refori}.{readtype}.lofreq.txt'
+        'benchmarks/{group}/vcalling.{refori}.{readtype}.lofreq.txt'
     shell:
         'lofreq call -f {input.fasta} -o {output} {input.aln} --verbose 2> {log}'
 
@@ -27,6 +27,6 @@ rule longshot:
     log:
         'logs/{group}/vcalling.{refori}.{readtype}.longshot.log'
     benchmark:
-        'benchmarks/{group}.vcalling.{refori}.{readtype}.longshot.txt'
+        'benchmarks/{group}/vcalling.{refori}.{readtype}.longshot.txt'
     shell:
         'longshot --ref {input.fasta} --out {output} --bam {input.aln} -n 2> {log}'

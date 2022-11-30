@@ -1,21 +1,18 @@
 # Thread note here: We provide here one single thread to strainberry while actually asking 16 of them in the command line `-c 16`
 # The reason is that most of the strainberry process is based on longshot, which in case of good reference assembly will not be well multhithreaded
-# Which can result in important time without CPU usage. Here we take the risk to use more CPU at one point (by using 16 more CPU) but this should still be ok.
-# IMPORTANT NOTE: In case the software is used on a cluster, this should however be modified!
-
-STRAINBERRY = '/home/ubuntu/miniconda3/envs/strainberry/bin/strainberry'
+# Which can result in important time without CPU usage. Here we take the risk to use more CPU at one point (by using 15 more CPU) but this should still be ok.
+# TODO: Modify this behavior for the final release.
 
 rule strainberry_illumina:
     input:
         fasta = 'references/used/{group}/refmap/{refori}.fa',
         fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
         bam   = 'mapping/{group}/{refori}.illumina.bam',
-        bai   = 'mapping/{group}/{refori}.illumina.bam.bai'
+        bai   = 'mapping/{group}/{refori}.illumina.bam.bai',
+        exe   = config['softparams']['soft']['strainberry']
     output:
         directory = directory('phasing/strainberry/{group}/{refori}/illumina'),
         scaffold  = protected('phasing/strainberry/{group}/{refori}/illumina/assembly.scaffolds.fa')
-    params:
-        executable = STRAINBERRY
     conda:
         config['softparams']['conda']['strainberry']
     benchmark:
@@ -25,19 +22,18 @@ rule strainberry_illumina:
     log:
         'logs/{group}/strainberry.{refori}.illumina.log'
     shell:
-        '{params.executable} -r {input.fasta} -b {input.bam} -o {output.directory} -c 16 2> {log}'
+        '{input.exe} -r {input.fasta} -b {input.bam} -o {output.directory} -c 16 2> {log}'
 
 rule strainberry_nanopore:
     input:
         fasta = 'references/used/{group}/refmap/{refori}.fa',
         fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
         bam   = 'mapping/{group}/{refori}.nanopore.bam',  
-        bai   = 'mapping/{group}/{refori}.nanopore.bam.bai'
+        bai   = 'mapping/{group}/{refori}.nanopore.bam.bai',
+        exe   = config['softparams']['soft']['strainberry']
     output:
         directory = directory('phasing/strainberry/{group}/{refori}/nanopore'),
         scaffold  = protected('phasing/strainberry/{group}/{refori}/nanopore/assembly.scaffolds.fa')
-    params:
-        executable = STRAINBERRY
     conda:
         config['softparams']['conda']['strainberry']
     benchmark:
@@ -47,9 +43,30 @@ rule strainberry_nanopore:
     log:
         'logs/{group}/strainberry.{refori}.nanopore.log'
     shell:
-        '{params.executable} -r {input.fasta} -b {input.bam} -o {output.directory} -c 16 --nanopore 2> {log}'
+        '{input.exe} -r {input.fasta} -b {input.bam} -o {output.directory} -c 16 --nanopore 2> {log}'
 
-rule strainberry_compress:
+rule strainberry_pacbio:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.pacbio_{mode}.bam',  
+        bai   = 'mapping/{group}/{refori}.pacbio_{mode}.bam.bai',
+        exe   = config['softparams']['soft']['strainberry']
+    output:
+        directory = directory('phasing/strainberry/{group}/{refori}/pacbio_{mode}'),
+        scaffold  = protected('phasing/strainberry/{group}/{refori}/pacbio_{mode}/assembly.scaffolds.fa')
+    conda:
+        config['softparams']['conda']['strainberry']
+    benchmark:
+        'benchmarks/{group}/strainberry.{refori}.pacbio_{mode}.txt'
+    threads:
+        1
+    log:
+        'logs/{group}/strainberry.{refori}.pacbio_{mode}.log'
+    shell:
+        '{input.exe} -r {input.fasta} -b {input.bam} -o {output.directory} -c 16 2> {log}'
+
+rule strainberry_compress_fasta:
     input:
         'phasing/strainberry/{group}/{refori}/{type}/assembly.scaffolds.fa'
     output:
@@ -57,10 +74,23 @@ rule strainberry_compress:
     shell:
         'gzip -c {input} > {output}'
 
+rule strainberry_compress_intermediate:
+    # This rule is used to compress and remove all the small but numerous files
+    # for clusters with file numbers limits
+    input:
+        'phasing/strainberry/{group}/{refori}/{type}/assembly.scaffolds.fa'
+    output:
+        'phasing/strainberry/{group}/{refori}{type}/strainberry_ns.tar.gz'
+    params:
+        path = 'phasing/strainberry/{group}/{refori}/{type}/strainberry_n*'
+    shell:
+        'tar -czvf {output} {params.path} --remove-files'
+
 rule uncompress:
     input:
-        rules.strainberry_compress.output
+        fa = rules.strainberry_compress_fasta.output,
+        sc = rules.strainberry_compress_intermediate.output
     output: 
         temp('temp/assemblies/{group}/{refori}.strainberry.{type}.fa')
     shell:
-        'zcat {input} > {output}'
+        'zcat {input.fa} > {output}'

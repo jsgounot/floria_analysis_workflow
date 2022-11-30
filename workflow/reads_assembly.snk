@@ -1,5 +1,3 @@
-OPERAMS = 'perl /home/ubuntu/OPERA-MS/OPERA-MS.pl'
-
 rule uncompress_long:
     input:
         'reads/{group}/nanopore/merged.fastq.gz'
@@ -12,11 +10,11 @@ rule operams:
     input:
         sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
         sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz',
-        lr = 'reads/{group}/nanopore/merged.fastq'
-    params:
-        executable = OPERAMS
+        lr = 'reads/{group}/nanopore/merged.fastq',
+        exe = config['softparams']['soft']['operams']
     output:
         outdir = directory('assembly/operams/{group}'),
+        interm = directory('assembly/operams/{group}/intermediate_files'),
         fasta = protected('assembly/operams/{group}/contigs.polished.fasta')
     conda:
         config['softparams']['conda']['operams']
@@ -25,15 +23,24 @@ rule operams:
     threads:
         16
     shell:
-        '({params.executable} --short-read1 {input.sr1} --short-read2 {input.sr2} --long-read {input.lr} --out-dir {output.outdir} --polishing --num-processors {threads})  2> {log}'
+        '(perl {input.exe} --short-read1 {input.sr1} --short-read2 {input.sr2} --long-read {input.lr} --out-dir {output.outdir} --polishing --num-processors {threads})  2> {log}'
+
+rule compress_intermediate:
+    input:
+        'assembly/operams/{group}/intermediate_files'
+    output:
+        'assembly/operams/{group}/intermediate_files.tar.gz'
+    shell:
+        'tar -czf {output} {input} && rm -r {input}'
 
 rule link_operams:
     input:
-        rules.operams.output.fasta
+        fa = rules.operams.output.fasta,
+        ci = rules.compress_intermediate.output
     output:
         'references/used/{group}/refmap/operams.fa'
     shell:
-        'ln -s $(pwd)/{input} {output}'
+        'ln -s $(pwd)/{input.fa} {output}'
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 

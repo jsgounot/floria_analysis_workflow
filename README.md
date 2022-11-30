@@ -5,24 +5,40 @@
 Workflows are based on [Snakemake](https://snakemake.readthedocs.io/en/stable/) and [Conda](https://docs.conda.io/en/latest/) under a Linux environment:
 
 * Ubuntu 18.04.1 LTS
-* Conda 4.11.0
-* Snakemake 6.15.5
+* Snakemake 7.18.1
 
-Pipeline should take around ~ 24h with 16 CPUs. Runtime is not linear to CPUs count since some part of the pipeline such are variant callers are not multi-threaded.
+Pipeline should take around ~ 24h with 16 CPUs. Runtime is not linear to CPUs count since some part of the pipeline such are variant callers are not multi-threaded. 
 
 ## Conda environments and software paths
 
-Most of the softwares used in the pipeline will be automatically downloaded by snakemake with conda during first launch following recipies found in `workflow/envs`. If you want to use your own / different conda environements, you can change the conda environment associated to a software call in the `condaenvs.json` file.
+Your main environment is supposed to have biopython and pigz installed as well. On ubuntu:
 
-For people with files number quota, a merged version of most of the environments (excluding `operams`, `strainberry` and `strainxpress`) is available in `workflow/envs/` and can be used to replace most of the environments yaml files in the `condaenvs.json`. 
+```bash
+conda install -c bioconda biopython
+sudo apt-get install pigz
+```
 
-**IMPORTANT**: For some softwares, you will need to install them locally: [strainberry](https://github.com/rvicedomini/strainberry), [strainxpress](https://github.com/kangxiongbin/StrainXpress), [glopp](https://github.com/bluenote-1577/glopp) and [operams](https://github.com/CSB5/OPERA-MS). **You can install just the ones you need**, and add the executable path in `softpaths.json`.
+Most of the other softwares used in the pipeline will be automatically downloaded by snakemake with conda during first launch, following recipes found in `workflow/envs`. If you want to use a different conda environments, you can replace associated environment names in the `condaenvs.json` file.
+
+For people with files number quota, a merged version of most of the environments `merged.yaml` (excluding `operams`, `strainberry` and `strainxpress`) is available in `workflow/envs/` and can be used to replace most of the environments yaml files in the `condaenvs.json`.
+
+**IMPORTANT**: For some softwares, you will need to install them locally: [strainberry](https://github.com/rvicedomini/strainberry), [strainxpress](https://github.com/kangxiongbin/StrainXpress), [glopp](https://github.com/bluenote-1577/glopp) and [opera-ms](https://github.com/CSB5/OPERA-MS). You can install just the ones you need, and add the executable path in `softpaths.json`.
+
+## Testing the pipeline
+
+You can test the pipeline with this command line.
+
+```bash
+snakemake -s single_species_synthetic.snk --configfile ctest.json --use-conda --conda-prefix ./conda --cores 4 -d ./res
+```
+
+This will run the pipeline with a test of two E. coli samples at low coverage.
 
 ## Synthetic dataset
 
 The synthetic dataset contains 3 experiments which can be found in `synthetic.json`. With provided config file, sequences will be automatically downloaded from NCBI.
 
-Recommanded command line to run the pipeline:
+Recommended command line to run the pipeline:
 
 ```bash
 snakemake -s single_species_synthetic.snk --configfile synthetic.json --use-conda --cores 24 --resources ncbi_load=1 --attempt 3
@@ -44,8 +60,13 @@ For example, `stats/assemblies/ecoli/glopp.inpref.hybrid.longshot.nanoprep1/mumm
 
 Another example could be: `strainxpress.fast` which simply mean the phasing is done by strainxpress with the fast option. Strainxpress does not use mapping and variant calling to run.
 
-One last example could be `operams.strainberry.nanopore`, which means strainberry with nanopore reads, based on a mapping with operams assemblies (and not the mapping reference from the config file).
+One last example could be `operams.strainberry.nanopore`, which means strainberry with nanopore reads mapping against OPERA-MS assembly.
 
 ## Hardcoded options
 
 Because all potential combinations cannot be informed in file paths, some options were hardcoded for this workflow but might not fit perfectly with other data. For example, the estimated Glopp error rate is uniquely defined for each mode, you will need to modify the snakemake file to change these values.
+
+## Known issues
+
+* Wtdbg2 and Strainberry (that uses Wtdbg2) crash 'randomly': This happens on some configuration and sadly there is nothing to do about it. The only way is to use the `retries` option (usually set to 3 on my tests).
+* StrainXpress uses too much memory. One way is to limit the number of CPU when calling strainxpress.

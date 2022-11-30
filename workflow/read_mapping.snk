@@ -1,15 +1,15 @@
 from scripts.utilities import get_mapping_ref
 
-rule minimap2_pacbio_clr:
+rule minimap2_pacbio:
     input:
         fasta = 'references/used/{group}/refmap/{refori}.fa',
-        lr = 'reads/{group}/pacbio/merged_clr.fastq.gz'
+        lr = 'reads/{group}/pacbio/merged_{model}.fastq.gz'
     output:
-        'mapping/{group}/{refori}.pacbio_clr.bam'
+        'mapping/{group}/{refori}.pacbio_{model}.bam'
     conda:
         config['softparams']['conda']['minimap2']
     log:
-        'logs/{group}/minimap2.{refori}.pacbio.log'
+        'logs/{group}/minimap2.{refori}.pacbio.{model}.log'
     threads:
         16
     shell:

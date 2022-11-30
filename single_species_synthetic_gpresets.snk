@@ -1,8 +1,14 @@
 import os
 from pathlib import Path
 
-# Example command line
-# snakemake -s single_species_synthetic.snk --configfile synthetic.json --use-conda --cores 24 --resources ncbi_load=1 --attempt 3 --keep-going --directory res_sss
+# NOT BEFORE RUNNING
+# THE ISSUE HERE IS THAT SNAKEMAKE IS EXTREMELY BAD AT HANDLING LARGE WORKFLOW WITH CONDITIONNAL
+# EXPRESSIONS SUCH AS THIS ONE. THEREFORE, MOST OF THE TIME WILL BE BE SPEND DOING NOTHING,
+# EVEN WORST, SNAKEMAKE WILL TAKE A RIDICULOUS AMOUNT OF RAM FOR NOTHING AT ALL.
+# TWO WAYS TO CIRCUMVENT THIS ISSUE:
+# 1. RUN YOUR PIPELINE MULTIPLE TIME WITH --until OPTION AND THREE OR LESS FINAL OUTPUT FILES
+# 2. RUN YOUR PIPELINE (I THINK IT WOULD WORK BUT DID NOT TEST) UNTIL CHECKPOINT RULES SUCH AS
+# run_assembly OR wtdbg2_nanopore USING --until AS WELL
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 # GROUPS SETTING
@@ -25,11 +31,17 @@ SUBGROUP = [
     #'none.strainxpress.regular'
     ]
 
-'''
+
+GLOPP_PRESETS_NANOPORE = ('gp9', 'gp27', 'gp45', 'gp63', 'gp81', 'gp99', 'gp117', 'gp135', 'gp153', 
+    'gp171', 'gp189', 'gp207', 'gp225', 'gp243', 'gp261', 'gp279', 'gp297', 'gp315', 'gp333', 
+    'gp351', 'gp369', 'gp387', 'gp405', 'gp423', 'gp441', 'gp459', 'gp477', 'gp495', 'gp513', 
+    'gp531', 'gp549', 'gp567', 'gp585', 'gp603', 'gp621', 'gp639')
+
 SUBGROUP = [
-    
+    expand('inpref.glopp.nanopore_{gpreset}.wtdbg2.long_reads.longshot', gpreset=GLOPP_PRESETS_NANOPORE)
+    #'inpref.glopp.hybrid_preset1.wtdbg2.long_reads.longshot',
+    #'inpref.glopp.pacbio_bbmap_preset1.wtdbg2.long_reads.longshot',
 ]
-'''
 
 config['softparams'] = {}
 
@@ -52,9 +64,8 @@ with open(fname) as f:
 rule all:
     input:      
         'logs/configuration.json',
-        expand('stats/assemblies/{group}/{subgroup}/mummer/circos/done.empty', group=GROUPS, subgroup=SUBGROUP),
-        expand('refcomp/{group}.fastani.txt', group=GROUPS),
-        expand('refcomp/{group}.mummer.txt', group=GROUPS)
+        expand('stats/assemblies/{group}/inpref.glopp.nanopore_{gpreset}.wtdbg2.long_reads.longshot/mummer/circos/done.empty', 
+            group=GROUPS, gpreset=GLOPP_PRESETS_NANOPORE)
 
         #'vcalling/ecoli/inpref.nanopore.longshot.vcf',
         #'phasing/glopp/ecoli/inpref/pacbio_ccs/longshot',
@@ -119,7 +130,7 @@ module sb:
 use rule * from sb as sb_*
 
 module gl:
-    snakefile: "workflow/glopp.snk"
+    snakefile: "workflow/glopp_presets.snk"
     config: config
 
 use rule * from gl as gl_*

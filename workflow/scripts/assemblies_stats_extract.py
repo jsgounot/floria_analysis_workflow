@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2022-03-28 15:58:48
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2022-05-12 12:08:15
+# @Last Modified time: 2022-11-30 10:52:52
 
 '''
 I first wanted to include this at the end of assemblies_stats_analyse_nucmer.py script,
@@ -17,7 +17,15 @@ def main(table, query, idx, outfile):
 
     sdf = df[(df['fidx'].astype(str) == str(idx)) & (df['best'])]
     ids = set(sdf['Q_NAME'].astype(str))
-    assert ids
+
+    # In some cases we can have no ids for an idx
+    # This means we did not find a single contig
+    # which align the best to this reference
+    # in this case we just write an empty file
+    if not ids:
+        with open(outfile, 'w'):
+            pass
+        return
 
     fdata = SeqIO.parse(query, 'fasta')
     with open(outfile, 'w') as f:

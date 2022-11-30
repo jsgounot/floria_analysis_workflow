@@ -1,4 +1,4 @@
-import glob, os
+import glob, os, json
 from scripts.utilities import get_mapping_ref, is_nonempty_gz_file
 
 WTDBG2PRESETS = {
@@ -50,6 +50,12 @@ rule index_bam:
 
 # --------------------------------------------------------------------------------------------------
 
+def make_glopp_options(wc):
+    fname = '/mnt/volume1/strainphasing/glopp_analysis_workflow/configs/glopp_config.json'
+    with open(fname) as f:
+        d = json.load(f)
+    return ' '.join(d[wc.preset])
+
 rule glopp_illumina:
     input:
         fasta = 'references/used/{group}/refmap/{refori}.fa',
@@ -59,17 +65,19 @@ rule glopp_illumina:
         vcf   = 'phasing/glopp/{group}/{refori}.illumina.{vcaller}.vcfc_header',
         exe   = config['softparams']['soft']['glopp']
     output:
-        outdir = directory('phasing/glopp/{group}/{refori}/illumina/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/illumina_{preset}/{vcaller}')
     benchmark:
-        'benchmarks/{group}/glopp.{refori}.illumina.{vcaller}.txt'
+        'benchmarks/{group}/glopp.{refori}.illumina_{preset}.{vcaller}.txt'
     conda:
         config['softparams']['conda']['glopp']
+    params:
+        preset_opts = make_glopp_options
     threads:
         16
     log:
-        'logs/{group}/glopp.{refori}.illumina.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.illumina_{preset}.{vcaller}.log'
     shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -e 0.01 > {log}'
+        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} {params.preset_opts} > {log}'
 
 rule glopp_nanopore:
     input:
@@ -80,17 +88,19 @@ rule glopp_nanopore:
         vcf   = 'phasing/glopp/{group}/{refori}.nanopore.{vcaller}.vcfc_header',
         exe   = config['softparams']['soft']['glopp']
     output:
-        outdir = directory('phasing/glopp/{group}/{refori}/nanopore/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/nanopore_{preset}/{vcaller}')
     benchmark:
-        'benchmarks/{group}/glopp.{refori}.nanopore.{vcaller}.txt'
+        'benchmarks/{group}/glopp.{refori}.nanopore_{preset}.{vcaller}.txt'
     conda:
         config['softparams']['conda']['glopp']
+    params:
+        preset_opts = make_glopp_options
     threads:
         16
     log:
-        'logs/{group}/glopp.{refori}.nanopore.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.nanopore_{preset}.{vcaller}.log'
     shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -X -e 0.04 > {log}' 
+        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} {params.preset_opts} > {log}' 
 
 rule glopp_hybrid:
     input:
@@ -102,17 +112,19 @@ rule glopp_hybrid:
         vcf   = 'phasing/glopp/{group}/{refori}.illumina.{vcaller}.vcfc_header',
         exe   = config['softparams']['soft']['glopp']
     output:
-        outdir = directory('phasing/glopp/{group}/{refori}/hybrid/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/hybrid_{preset}/{vcaller}')
     benchmark:
-        'benchmarks/{group}/glopp.{refori}.hybrid.{vcaller}.txt'
+        'benchmarks/{group}/glopp.{refori}.hybrid_{preset}.{vcaller}.txt'
     conda:
         config['softparams']['conda']['glopp']
+    params:
+        preset_opts = make_glopp_options
     threads:
         16
     log:
-        'logs/{group}/glopp.{refori}.hybrid.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.hybrid_{preset}.{vcaller}.log'
     shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -H {input.short} --reassign-short -X -e 0.01 > {log}'
+        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -H {input.short} --reassign-short {params.preset_opts} > {log}'
 
 rule glopp_pacbio:
     input:
@@ -123,38 +135,19 @@ rule glopp_pacbio:
         vcf   = 'phasing/glopp/{group}/{refori}.pacbio_{model}.{vcaller}.vcfc_header',
         exe   = config['softparams']['soft']['glopp']
     output:
-        outdir = directory('phasing/glopp/{group}/{refori}/pacbio_{model}/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/pacbio_{model}_{preset}/{vcaller}')
     benchmark:
-        'benchmarks/{group}/glopp.{refori}.pacbio_{model}.{vcaller}.txt'
+        'benchmarks/{group}/glopp.{refori}.pacbio_{model}_{preset}.{vcaller}.txt'
     conda:
         config['softparams']['conda']['glopp']
+    params:
+        preset_opts = make_glopp_options
     threads:
         16
     log:
-        'logs/{group}/glopp/{refori}.pacbio_{model}.{vcaller}.log'
+        'logs/{group}/glopp/{refori}.pacbio_{model}_{preset}.{vcaller}.log'
     shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -e 0.01 > {log}'
-
-rule glopp_pacbioe5:
-    input:
-        fasta = 'references/used/{group}/refmap/{refori}.fa',
-        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
-        bam   = 'mapping/{group}/{refori}.pacbio_{model}.bam',
-        bai   = 'mapping/{group}/{refori}.pacbio_{model}.bam.bai',
-        vcf   = 'phasing/glopp/{group}/{refori}.pacbio_{model}.{vcaller}.vcfc_header',
-        exe   = config['softparams']['soft']['glopp']
-    output:
-        outdir = directory('phasing/glopp/{group}/{refori}/pacbioe5_{model}/{vcaller}')
-    benchmark:
-        'benchmarks/{group}/glopp.{refori}.pacbioe5_{model}.{vcaller}.txt'
-    conda:
-        config['softparams']['conda']['glopp']
-    threads:
-        16
-    log:
-        'logs/{group}/glopp.{refori}.pacbioe5_{model}.{vcaller}.log'
-    shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -e 0.05 > {log}'
+        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} {params.preset_opts} > {log}'
 
 checkpoint run_assembly:
     input:
@@ -253,7 +246,15 @@ def aggregate_input_wtgdb2(wildcards):
     f = glob.glob(f)
 
     # Important here, we define the wtdbg2 preset based on the used glopp mode
-    wpreset  = WTDBG2PRESETS[wildcards.gmode]
+    gmode = wildcards.gmode
+    if gmode.startswith('nanopore'):
+        gmode = 'nanopore'
+    elif gmode.startswith('hifi'):
+        gmode = 'hifi'
+    else:
+        raise Exception(f'Unable to define preset for {gmode}')
+
+    wpreset  = WTDBG2PRESETS[gmode]
 
     for idx, fname in enumerate(f):
 

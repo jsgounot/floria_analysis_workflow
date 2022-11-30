@@ -60,10 +60,12 @@ rule extract_best_results:
         get_qcoords
     output:
         'stats/assemblies/{group}/{basename}/mummer/best_results.tsv'
+    conda:
+        config['softparams']['conda']['mummer']
     script:
         'scripts/assemblies_stats_analyse_nucmer.py'
 
-rule make_best_subfa:
+checkpoint make_best_subfa:
     input:
         table = rules.extract_best_results.output,
         query = 'temp/assemblies/{group}/{basename}.fa'
@@ -79,9 +81,9 @@ rule mummer_nucmer_best:
         query = rules.make_best_subfa.output,
         ref = lambda wc: REFERENCES[wc.group][int(wc.idx)]
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.delta'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.full.delta'
     params:
-        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.best'
+        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.best.full'
     threads:
         4
     conda:
@@ -89,17 +91,36 @@ rule mummer_nucmer_best:
     shell:
         'nucmer --maxmatch -t {threads} -p {params.prefix} {input.ref} {input.query}'
 
-rule mummer_dnadiff_best:
+rule mummer_dnadiff_best_complete:
     input:
         rules.mummer_nucmer_best.output
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.report'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.full.report'
     params:
-        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.best'
+        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.best.full'
     conda:
         config['softparams']['conda']['mummer']
     shell:
         'dnadiff -p {params.prefix} -d {input}'
+
+rule mummer_dnadiff_best_empty:
+    output:
+        touch('stats/assemblies/{group}/{basename}/mummer/{idx}.best.empty.report')
+
+def get_report(wildcards):
+    output = checkpoints.make_best_subfa.get(** wildcards).output[0]
+    if os.stat(output).st_size == 0:
+        return rules.mummer_dnadiff_best_empty.output
+    else:
+        return rules.mummer_dnadiff_best_complete.output
+
+rule mummer_dnadiff_best:
+    input:
+        get_report
+    output:
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.report'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
 
 def get_reports(wildcards):
     count = len(REFERENCES[wildcards.group])
@@ -128,7 +149,7 @@ rule prepare_circos_coords:
     output:
         'stats/assemblies/{group}/{basename}/mummer/circos/1coords.tsv'
     params:
-        'stats/assemblies/{group}/{basename}/mummer/*.best.1coords'
+        'stats/assemblies/{group}/{basename}/mummer/*.best.full.1coords'
     shell:
         'awk \'BEGIN{{OFS="\\t"}} $2!="." && $3!="."{{ print $12,$1,$2,$7 }}\' {params} > {output}'
 
@@ -138,7 +159,7 @@ rule prepare_circos_snps:
     output:
         'stats/assemblies/{group}/{basename}/mummer/circos/snps.int.tsv'
     params:
-        'stats/assemblies/{group}/{basename}/mummer/*.best.snps'
+        'stats/assemblies/{group}/{basename}/mummer/*.best.full.snps'
     shell:
         'for f in {params}; \
         do \
@@ -158,9 +179,9 @@ rule prepare_circos_karyotype:
 
 rule make_all_files:
     input:
-        rules.parse_report.output,
-        rules.prepare_circos_coords.output,
-        rules.prepare_circos_snps.output,
-        rules.prepare_circos_karyotype.output
+        ancient(rules.parse_report.output),
+        ancient(rules.prepare_circos_coords.output),
+        ancient(rules.prepare_circos_snps.output),
+        ancient(rules.prepare_circos_karyotype.output)
     output:
-        temp(touch('stats/assemblies/{group}/{basename}/mummer/circos/done.empty'))
+        touch('stats/assemblies/{group}/{basename}/mummer/circos/done.empty')
