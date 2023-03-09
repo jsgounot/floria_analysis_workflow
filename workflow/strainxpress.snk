@@ -14,7 +14,7 @@ rule strainxpress_fast:
         exe = config['softparams']['soft']['strainxpress']
     output:
         directory = directory('phasing/strainxpress/{group}/fast'),
-        scaffold  = protected('phasing/strainxpress/{group}/fast/stageb/contigs.stage_b.fasta'),
+        scaffold  = protected('phasing/strainxpress/{group}/fast/stageb/final_contigs.fasta'),
         mapres = temp('phasing/strainxpress/{group}/fast/all_reads_sort.map')
     params:
         insertsize = 300,
@@ -24,7 +24,7 @@ rule strainxpress_fast:
     benchmark:
         'benchmarks/{group}.strainxpress.fast.txt'
     threads:
-        16
+        48
     log:
         'logs/{group}/strainxpress.fast.log'
     shell:
@@ -36,7 +36,7 @@ rule strainxpress_regular:
         exe = config['softparams']['soft']['strainxpress']
     output:
         directory = directory('phasing/strainxpress/{group}/regular'),
-        scaffold  = protected('phasing/strainxpress/{group}/regular/stageb/contigs.stage_b.fasta'),
+        scaffold  = protected('phasing/strainxpress/{group}/regular/stageb/final_contigs.fasta'),
         mapres = temp('phasing/strainxpress/{group}/regular/all_reads_sort.map')
     params:
         insertsize = 300,
@@ -46,7 +46,7 @@ rule strainxpress_regular:
     benchmark:
         'benchmarks/{group}.strainxpress.regular.txt'
     threads:
-        16
+        48
     log:
         'logs/{group}/strainxpress.regular.log'
     shell:
@@ -54,7 +54,7 @@ rule strainxpress_regular:
 
 rule strainxpress_compress:
     input:
-        'phasing/strainxpress/{group}/{type}/stageb/contigs.stage_b.fasta'
+        'phasing/strainxpress/{group}/{type}/stageb/final_contigs.fasta'
     output:
         'phasing/assemblies/{group}/none.strainxpress.{type}.fa.gz'
     shell:

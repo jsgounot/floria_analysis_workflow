@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2022-03-28 19:32:34
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2022-05-19 18:06:55
+# @Last Modified time: 2022-12-08 14:26:47
 
 
 '''
@@ -26,7 +26,9 @@ from pybedtools import BedTool
 import pandas as pd
 
 def load_qcoords(fname):
-    names = ['R_BEG', 'R_END', 'Q_BEG', 'Q_END', 'R_HITLEN', 'Q_HITLEN', '%IDY', 'R_LEN', 'Q_LEN', 'R_COV', 'Q_COV', 'R_NAME', 'Q_NAME']
+    names = ['R_BEG', 'R_END', 'Q_BEG', 'Q_END', 'R_HITLEN', 'Q_HITLEN', 
+            '%IDY', 'R_LEN', 'Q_LEN', 'R_COV', 'Q_COV', 'R_NAME', 'Q_NAME']
+    
     df = pd.read_csv(fname, sep='\t', names=names)
     df['fidx'] = bname(fname).split('.')[0]
     return df

@@ -38,11 +38,16 @@ rule link_operams:
         fa = rules.operams.output.fasta,
         ci = rules.compress_intermediate.output
     output:
-        'references/used/{group}/refmap/operams.fa'
+        'assembly/done/{group}/operams.fa'
     shell:
         'ln -s $(pwd)/{input.fa} {output}'
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# Maybe I should change this to something into the configuration file
+# But it seems this only helps for an estimation of used memory and not
+# directly impacting assembly output
+ESTIMATED_GENOMESIZE = '5m'
 
 rule flye_nanopore:
     input:
@@ -55,9 +60,9 @@ rule flye_nanopore:
     log:    
         'logs/{group}/assembly.flye_nanopore.log'
     threads:
-        16
+        48
     params:
-        mgsize = lambda wc: config[wc.group]['assembly']['fly_mg_size']
+        mgsize = ESTIMATED_GENOMESIZE
     shell:
         'flye --meta --min-overlap 3000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --nano-raw {input} &> {log}'
 
@@ -65,35 +70,25 @@ rule link_flye_nanopore:
     input:
         rules.flye_nanopore.output.fasta
     output:
-        'references/used/{group}/refmap/flye_nanopore.fa'
+        'assembly/done/{group}/flye_nanopore_raw.fa'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
-rule flye_pacbio:
+rule flye_nanopore_medaka:
     input:
-        'reads/{group}/pacbio/merged_{rtype}.fastq.gz'
-    output: 
-        outdir = directory('assembly/flye/{group}/pacbio/{rtype}'),
-        fasta = protected('assembly/flye/{group}/pacbio/{rtype}/assembly.fasta')
-    conda:   
-        config['softparams']['conda']['flye']
-    log:    
-        'logs/{group}/assembly.flye_pacbio.{rtype}.log'
-    threads:
-        16
-    params:
-        mgsize = lambda wc: config[wc.group]['assembly']['fly_mg_size']
-    shell:
-        'flye --meta --min-overlap 3000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --pacbio-raw {input} 2> {log}'
-
-rule link_flye_pacbio:
-    input:
-        rules.flye_pacbio.output.fasta
+        rules.flye_nanopore.output.fasta
     output:
-        'references/used/{group}/refmap/flye_pacbio.{rtype}.fa'
+        'assembly/flye/{group}/medaka/assembly.fasta'
+    shell:
+        ''
+
+rule link_flye_nanopore_medaka:
+    input:
+        rules.flye_nanopore_medaka.output
+    output:
+        'assembly/done/{group}/flye_nanopore_medaka.fa'
     shell:
         'ln -s $(pwd)/{input} {output}'
-
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -118,7 +113,7 @@ rule link_canu_nanopore:
     input:
         rules.canu_nanopore.output.fasta
     output:
-        'references/used/{group}/refmap/canu_nanopore.fa'
+        'assembly/done/{group}/canu_nanopore.fa'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
@@ -143,7 +138,7 @@ rule link_canu_pacbio:
     input:
         rules.canu_pacbio.output.fasta
     output:
-        'references/used/{group}/refmap/canu_pacbio.{rtype}.fa'
+        'assembly/done/{group}/canu_pacbio_{rtype}.fa'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
@@ -166,12 +161,150 @@ rule megahit_paired:
     log:
         'logs/{group}/assembly.megahit_paired.log'
     shell:
-        'megahit -1 {input.r1} -2 {input.r2} -o {output.outdir} -t {threads} && rm -rf {params.interm} 2> {log}'
+        'rm -r {output.outdir} && megahit -1 {input.r1} -2 {input.r2} -o {output.outdir} -t {threads} && rm -rf {params.interm} 2> {log}'
 
 rule link_megahit:
     input:
         rules.megahit_paired.output.fasta
     output:
-        'references/used/{group}/refmap/megahit.fa'
+        'assembly/done/{group}/megahit.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# https://hifiasm.readthedocs.io/en/latest/interpreting-output.html#output-files
+rule hifiasm_meta:
+    input:
+        fastq = 'reads/{group}/pacbio/merged_{model}.fastq.gz',
+        exe = config['softparams']['soft']['hifiasm_meta']
+    output:
+        raw_unitigs       = protected('assembly/hifiasm_meta/{group}/{model}/asm.r_utg.gfa'),
+        clean_unitigs     = protected('assembly/hifiasm_meta/{group}/{model}/asm.p_utg.gfa'),
+        primary_contigs   = protected('assembly/hifiasm_meta/{group}/{model}/asm.p_ctg.gfa'),
+        alternate_contigs = protected('assembly/hifiasm_meta/{group}/{model}/asm.a_ctg.gfa'),
+    params:
+        prefix = 'assembly/hifiasm_meta/{group}/{model}/asm'
+    benchmark:
+        'benchmarks/{group}.hifiasm_meta.{model}.txt'
+    threads: 
+        32
+    log:
+        'logs/{group}/hifiasm_meta.{model}.log'
+    shell:
+        '{input.exe} -o {params.prefix} -t {threads} {input.fastq} 2> {log}'
+
+# https://www.biostars.org/p/169516/
+rule hifiasm_meta_gfa_to_fa:
+    input:
+        'assembly/hifiasm_meta/{group}/{model}/asm.{basename}.gfa'
+    output:
+        'assembly/hifiasm_meta/{group}/{model}/asm.{basename}.fa'
+    shell:
+        'awk \'/^S/{{print ">"$2"\\n"$3}}\' {input} | fold > {output}'
+
+rule hifiasm_meta_add_suffix:
+    input:
+        'assembly/hifiasm_meta/{group}/{model}/asm.{basename}.fa'
+    output:
+	'assembly/hifiasm_meta/{group}/{model}/asm.{basename}_suffix.fa'
+    params:
+        suffix = lambda wc: wc.basename
+    script:
+        'scripts/rename_fastaids.py'	
+
+rule hifiasm_meta_merge_ctg:
+    input:
+        pctg = 'assembly/hifiasm_meta/{group}/{model}/asm.p_ctg.fa',
+        actg = 'assembly/hifiasm_meta/{group}/{model}/asm.a_ctg.fa'
+    output:
+        'assembly/hifiasm_meta/{group}/{model}/asm.m_ctg.fa'
+    shell:
+        "(sed 's/>.*/&_p_ctg/' {input.pctg} > {output}) && (sed 's/>.*/&_a_ctg/' {input.actg} >> {output})"
+
+rule link_hifiasm_meta:
+    input:
+        'assembly/hifiasm_meta/{group}/{model}/asm.{basename}.fa'
+    output:
+        'assembly/done/{group}/hifiasm_meta.{model}.{basename}.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+rule unicycler_short:
+    input:
+        r1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
+        r2 = 'reads/{group}/illumina/merged/R2.fastq.gz'
+    output:
+        fa = 'assembly/unicycler/{group}/short/assembly.fasta'
+    conda:
+        config['softparams']['conda']['unicycler']
+    params:
+        prefix = 'assembly/unicycler/{group}/short'
+    threads:
+        32
+    log:
+        'logs/{group}/assembly.unicycler_short.log'
+    shell:
+        'unicycler --short1 {input.r1} --short2 {input.r2} --threads {threads} --out {params.prefix} > {log}'
+
+rule unicycler_long:
+    input:
+        lo = 'reads/{group}/nanopore/merged.fastq.gz'
+    output:
+        fa = 'assembly/unicycler/{group}/long/assembly.fasta'
+    conda:
+        config['softparams']['conda']['unicycler']
+    params:
+        prefix = 'assembly/unicycler/{group}/long'
+    threads:
+        32
+    log:
+        'logs/{group}/assembly.unicycler_long.log'
+    shell:
+        'unicycler --long {input.lo} --threads {threads} --out {params.prefix} > {log}'
+
+rule unicycler_hybrid:
+    input:
+        r1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
+        r2 = 'reads/{group}/illumina/merged/R2.fastq.gz',
+        lo = 'reads/{group}/nanopore/merged.fastq.gz'
+    output:
+        fa = 'assembly/unicycler/{group}/hybrid/assembly.fasta'
+    conda:
+        config['softparams']['conda']['unicycler']
+    params:
+        prefix = 'assembly/unicycler/{group}/hybrid'
+    threads:
+        32
+    log:
+        'logs/{group}/assembly.unicycler_hybrid.log'
+    shell:
+        'unicycler --short1 {input.r1} --short2 {input.r2} --long {input.lo} --threads {threads} --out {params.prefix} > {log}'
+
+rule link_unicycler:
+    input:
+        'assembly/unicycler/{group}/{mode}/assembly.fasta'
+    output:
+        'assembly/done/{group}/unicycler_{mode}.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+rule link_to_mapping_process:
+    input:
+        'assembly/done/{group}/{basename}.fa'
+    output:
+        'references/used/{group}/refmap/{basename}.fa'
+    shell:
+        'ln -s $(pwd)/{input} {output}'
+
+rule link_to_haplotype_stats:
+    input:
+        'assembly/done/{group}/{basename}.fa'
+    output:
+        temp('temp/assemblies/{group}/none.{basename}.fa')
     shell:
         'ln -s $(pwd)/{input} {output}'

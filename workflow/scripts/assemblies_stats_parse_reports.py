@@ -24,6 +24,10 @@ def dnadiff_dup_bases(fname):
     return count
 
 def fasta_n50(fname, gsize=0):
+    # There is risk here that function returns None
+    # if sum(lengths) < mid (assembly size is shorter than half
+    # the reference size)
+
     fdata = SeqIO.parse(fname, 'fasta')
     lengths = sorted((len(record.seq) for record in fdata), reverse=True)
     mid = (gsize or sum(length)) / 2

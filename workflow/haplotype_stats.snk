@@ -143,6 +143,16 @@ rule parse_report:
     script:
         'scripts/assemblies_stats_parse_reports.py'
 
+rule compress_mummer:
+    input:
+        rules.parse_report.output
+    output:
+        'stats/assemblies/{group}/{basename}/mummer/mummer_files.tar.gz'
+    params:
+        path = 'stats/assemblies/{group}/{basename}/mummer/[0-9].*'
+    shell:
+        'tar -czvf {output} {params.path} --remove-files'
+
 rule prepare_circos_coords:
     input:
         get_reports
@@ -182,6 +192,7 @@ rule make_all_files:
         ancient(rules.parse_report.output),
         ancient(rules.prepare_circos_coords.output),
         ancient(rules.prepare_circos_snps.output),
-        ancient(rules.prepare_circos_karyotype.output)
+        ancient(rules.prepare_circos_karyotype.output),
+        ancient(rules.compress_mummer.output)
     output:
         touch('stats/assemblies/{group}/{basename}/mummer/circos/done.empty')

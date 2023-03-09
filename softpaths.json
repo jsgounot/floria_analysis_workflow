@@ -1,0 +1,8 @@
+{
+	"strainxpress": "/home/ubuntu/soft/StrainXpress/scripts/strainxpress.py",
+	"strainberry": "/home/ubuntu/soft/strainberry/strainberry",
+	"glopp": "/home/ubuntu/soft/glopp/target/release/glopp",
+	"operams": "/home/ubuntu/soft/OPERA-MS/OPERA-MS.pl",
+	"hifiasm_meta": "/home/ubuntu/soft/hifiasm_meta/hifiasm-meta/hifiasm_meta_r63asan",
+	"simuG": "/home/ubuntu/soft/simuG/simuG.pl"
+}

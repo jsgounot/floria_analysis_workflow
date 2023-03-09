@@ -80,7 +80,7 @@ rule strainberry_compress_intermediate:
     input:
         'phasing/strainberry/{group}/{refori}/{type}/assembly.scaffolds.fa'
     output:
-        'phasing/strainberry/{group}/{refori}{type}/strainberry_ns.tar.gz'
+        'phasing/strainberry/{group}/{refori}/{type}/strainberry_ns.tar.gz'
     params:
         path = 'phasing/strainberry/{group}/{refori}/{type}/strainberry_n*'
     shell:

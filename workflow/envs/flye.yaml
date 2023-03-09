@@ -1,7 +1,7 @@
-name: lofreq
+name: flye
 channels:
   - bioconda
   - conda-forge
-  - defaults
 dependencies:
-  - lofreq=2.1.5
+  - flye
+  - medaka

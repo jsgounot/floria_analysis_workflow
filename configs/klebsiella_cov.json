@@ -1,0 +1,74 @@
+{
+	"klebsiella_c10": {
+			"kleb_MN": {
+				"ncbiasbly": "ASM1990034v1",
+				"mapping_ref": "True",
+				"quantity": 10,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"kleb_NC": {
+				"ncbiasbly": "ASM1990030v1",
+				"quantity": 10,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"kleb_PA": {
+				"ncbiasbly": "ASM1990032v1",
+				"quantity": 10,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			}
+		},
+	"klebsiella_c20": {
+			"kleb_MN": {
+				"ncbiasbly": "ASM1990034v1",
+				"mapping_ref": "True",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"kleb_NC": {
+				"ncbiasbly": "ASM1990030v1",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"kleb_PA": {
+				"ncbiasbly": "ASM1990032v1",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			}
+		},
+	"klebsiella_c30": {
+			"kleb_MN": {
+				"ncbiasbly": "ASM1990034v1",
+				"mapping_ref": "True",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"kleb_NC": {
+				"ncbiasbly": "ASM1990030v1",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"kleb_PA": {
+				"ncbiasbly": "ASM1990032v1",
+				"quantity": 30,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			}
+		}
+}

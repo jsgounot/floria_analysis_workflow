@@ -1,0 +1,64 @@
+rule sourmash_sketch:
+    input:
+        read
+    output:
+        signature
+    shell:
+        'sourmash sketch dna -p abund {input} -o {output}'
+
+rule sourmash_merge:
+    input:
+        * reads
+    output:
+        signature
+    shell:
+        'sourmash signature merge {input} -o {output}'
+
+rule sourmash_gather:
+    input:
+        signature,
+        database
+    output:
+        outfile
+    params:
+        threshold = '0.0'
+    shell:
+        'sourmash gather {input.signature} {input.database} -o {output} --threshold={params.threshold}'
+
+checkpoint select_subgenomes:
+    input:
+        rules.sourmash_gather.input
+    output:
+        genomelist
+    params:
+        threshold=1
+    script:
+        'scripts/sourmash_select_subgenomes.py'
+
+def get_gtdb_assemblies_link(wc):
+    fname = checkpoints.select_subgenomes.get(* wc).output[0]
+    with open(fname) as f:
+        links = [line.strip() for line in f]
+    return links
+
+rule download_gtdbass:
+    input:
+        get_gtdb_assemblies_link
+    output:
+        'gtdb_subgenomes.fa'
+    output:
+        'cat {input} > {output}'
+
+rule minimap2_mapping:
+    input:
+        rules.download_gtdbass
+    output:
+
+
+rule samtools_depth:
+    
+
+rule samtools_depth_coverage
+
+
+rule final_collection

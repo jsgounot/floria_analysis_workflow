@@ -1,6 +1,6 @@
-name: wtdbg2
+name: abyss
 channels:
   - bioconda
   - defaults
 dependencies:
-  - wtdbg=2.5
+  - abyss=2.2.3

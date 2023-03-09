@@ -1,0 +1,72 @@
+{
+	"ecoli_seed50": {
+			"ecoli_k12": {
+				"ncbinuc": "NC_000913.3",
+				"mapping_ref": "True",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50
+			},
+			"ecoli_k12_1prc": {
+				"ncbinuc": "NC_000913.3",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50,
+				"simulate": {
+					"snp_prc": 0.8,
+					"indel_count": 500,
+					"seed": 50
+				}
+			},
+			"ecoli_k12_2prc": {
+				"ncbinuc": "NC_000913.3",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50,
+				"simulate": {
+					"snp_prc": 1.8,
+					"indel_count": 500,
+					"seed": 50
+				}
+			},
+			"ecoli_k12_3prc": {
+				"ncbinuc": "NC_000913.3",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50,
+				"simulate": {
+					"snp_prc": 2.7,
+					"indel_count": 750,
+					"seed": 50
+				}
+			},
+			"ecoli_k12_4prc": {
+				"ncbinuc": "NC_000913.3",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50,
+				"simulate": {
+					"snp_prc": 3.6,
+					"indel_count": 1000,
+					"seed": 50
+				}
+			},
+			"ecoli_k12_5prc": {
+				"ncbinuc": "NC_000913.3",
+				"quantity": 20,
+				"circular": "true",
+				"nanopore": "average",
+				"seed": 50,
+				"simulate": {
+					"snp_prc": 4.6,
+					"indel_count": 1000,
+					"seed": 50
+				}
+			}
+	}
+}

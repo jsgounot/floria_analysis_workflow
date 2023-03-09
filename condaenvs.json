@@ -3,12 +3,12 @@
 	"mummer": "envs/merged.yaml",
 	"minimap2": "envs/merged.yaml",
 	"badread": "envs/merged.yaml",
-	"bbmap": "bbmap", 
+	"bbmap": "envs/merged.yaml", 
 	"pbsim": "envs/merged.yaml",
 	"pbsim2": "envs/merged.yaml",
 	"art": "envs/merged.yaml",
 	"operams": "envs/operams.yaml",
-	"flye": "envs/merged.yaml",
+	"flye": "envs/flye.yaml",
 	"canu": "envs/merged.yaml",
 	"megahit": "envs/merged.yaml",
 	"entrez": "envs/merged.yaml",
@@ -18,5 +18,7 @@
 	"lofreq": "envs/merged.yaml",
 	"strainxpress": "envs/strainxpress.yaml",
 	"strainberry": "envs/strainberry.yaml",
-	"glopp": "envs/merged.yaml"
+	"glopp": "envs/merged.yaml",
+	"unicycler": "unicycler",
+	"abyss": "envs/abyss.yaml"
 }

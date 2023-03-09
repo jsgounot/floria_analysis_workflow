@@ -29,4 +29,4 @@ rule longshot:
     benchmark:
         'benchmarks/{group}/vcalling.{refori}.{readtype}.longshot.txt'
     shell:
-        'longshot --ref {input.fasta} --out {output} --bam {input.aln} -n 2> {log}'
+        'longshot --ref {input.fasta} --out {output} --bam {input.aln} -F -n 2> {log}'

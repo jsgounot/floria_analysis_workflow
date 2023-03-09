@@ -1,15 +1,8 @@
-import glob, os
-from scripts.utilities import get_mapping_ref, is_nonempty_gz_file
-
-WTDBG2PRESETS = {
-    'pacbio_bbmap': 'hifi',
-    'pacbioe5_bbmap': 'hifi',
-    'nanopore': 'nanopore',
-    'hybrid': 'nanopore'
-}
+import glob, os, json
 
 wildcard_constraints:
-    vcaller="longshot|lofreq"
+    vcaller="longshot|lofreq",
+    rtype="long_reads|short_reads"
 
 rule link_vcf:
     input:
@@ -50,6 +43,12 @@ rule index_bam:
 
 # --------------------------------------------------------------------------------------------------
 
+def make_glopp_options(wc):
+    fname = '../../configs/glopp_config.json'
+    with open(fname) as f:
+        d = json.load(f)
+    return ' '.join(d[wc.preset])
+
 rule glopp_illumina:
     input:
         fasta = 'references/used/{group}/refmap/{refori}.fa',
@@ -59,17 +58,19 @@ rule glopp_illumina:
         vcf   = 'phasing/glopp/{group}/{refori}.illumina.{vcaller}.vcfc_header',
         exe   = config['softparams']['soft']['glopp']
     output:
-        outdir = directory('phasing/glopp/{group}/{refori}/illumina/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/illumina_{preset}/{vcaller}')
     benchmark:
-        'benchmarks/{group}/glopp.{refori}.illumina.{vcaller}.txt'
+        'benchmarks/{group}/glopp.{refori}.illumina_{preset}.{vcaller}.txt'
     conda:
         config['softparams']['conda']['glopp']
+    params:
+        preset_opts = make_glopp_options
     threads:
         16
     log:
-        'logs/{group}/glopp.{refori}.illumina.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.illumina_{preset}.{vcaller}.log'
     shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -e 0.01 > {log}'
+        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} {params.preset_opts} > {log}'
 
 rule glopp_nanopore:
     input:
@@ -80,17 +81,19 @@ rule glopp_nanopore:
         vcf   = 'phasing/glopp/{group}/{refori}.nanopore.{vcaller}.vcfc_header',
         exe   = config['softparams']['soft']['glopp']
     output:
-        outdir = directory('phasing/glopp/{group}/{refori}/nanopore/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/nanopore_{preset}/{vcaller}')
     benchmark:
-        'benchmarks/{group}/glopp.{refori}.nanopore.{vcaller}.txt'
+        'benchmarks/{group}/glopp.{refori}.nanopore_{preset}.{vcaller}.txt'
     conda:
         config['softparams']['conda']['glopp']
+    params:
+        preset_opts = make_glopp_options
     threads:
         16
     log:
-        'logs/{group}/glopp.{refori}.nanopore.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.nanopore_{preset}.{vcaller}.log'
     shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -X -e 0.04 > {log}' 
+        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} {params.preset_opts} > {log}' 
 
 rule glopp_hybrid:
     input:
@@ -102,17 +105,19 @@ rule glopp_hybrid:
         vcf   = 'phasing/glopp/{group}/{refori}.illumina.{vcaller}.vcfc_header',
         exe   = config['softparams']['soft']['glopp']
     output:
-        outdir = directory('phasing/glopp/{group}/{refori}/hybrid/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/hybrid_{preset}/{vcaller}')
     benchmark:
-        'benchmarks/{group}/glopp.{refori}.hybrid.{vcaller}.txt'
+        'benchmarks/{group}/glopp.{refori}.hybrid_{preset}.{vcaller}.txt'
     conda:
         config['softparams']['conda']['glopp']
+    params:
+        preset_opts = make_glopp_options
     threads:
         16
     log:
-        'logs/{group}/glopp.{refori}.hybrid.{vcaller}.log'
+        'logs/{group}/glopp.{refori}.hybrid_{preset}.{vcaller}.log'
     shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -H {input.short} --reassign-short -X -e 0.01 > {log}'
+        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -H {input.short} --reassign-short {params.preset_opts} > {log}'
 
 rule glopp_pacbio:
     input:
@@ -123,181 +128,219 @@ rule glopp_pacbio:
         vcf   = 'phasing/glopp/{group}/{refori}.pacbio_{model}.{vcaller}.vcfc_header',
         exe   = config['softparams']['soft']['glopp']
     output:
-        outdir = directory('phasing/glopp/{group}/{refori}/pacbio_{model}/{vcaller}')
+        outdir = directory('phasing/glopp/{group}/{refori}/pacbio_{model}_{preset}/{vcaller}')
     benchmark:
-        'benchmarks/{group}/glopp.{refori}.pacbio_{model}.{vcaller}.txt'
+        'benchmarks/{group}/glopp.{refori}.pacbio_{model}_{preset}.{vcaller}.txt'
     conda:
         config['softparams']['conda']['glopp']
+    params:
+        preset_opts = make_glopp_options
     threads:
         16
     log:
-        'logs/{group}/glopp/{refori}.pacbio_{model}.{vcaller}.log'
+        'logs/{group}/glopp/{refori}.pacbio_{model}_{preset}.{vcaller}.log'
     shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -e 0.01 > {log}'
+        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} {params.preset_opts} > {log}'
 
-rule glopp_pacbioe5:
-    input:
-        fasta = 'references/used/{group}/refmap/{refori}.fa',
-        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
-        bam   = 'mapping/{group}/{refori}.pacbio_{model}.bam',
-        bai   = 'mapping/{group}/{refori}.pacbio_{model}.bam.bai',
-        vcf   = 'phasing/glopp/{group}/{refori}.pacbio_{model}.{vcaller}.vcfc_header',
-        exe   = config['softparams']['soft']['glopp']
-    output:
-        outdir = directory('phasing/glopp/{group}/{refori}/pacbioe5_{model}/{vcaller}')
-    benchmark:
-        'benchmarks/{group}/glopp.{refori}.pacbioe5_{model}.{vcaller}.txt'
-    conda:
-        config['softparams']['conda']['glopp']
-    threads:
-        16
-    log:
-        'logs/{group}/glopp.{refori}.pacbioe5_{model}.{vcaller}.log'
-    shell:
-        '{input.exe} -b {input.bam} -c {input.vcf} -o {output.outdir} -t {threads} -R {input.fasta} -e 0.05 > {log}'
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# This part is made to compress all directory for both space and files number reduction
 
-checkpoint run_assembly:
+rule glopp_done:
     input:
         'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}'
     output: 
         temp(touch('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}.done'))
 
-# ------------------------------------------------------------------------------------------------------------------------------------------
-# WTDBG Assembly
-
-checkpoint wtdbg2_nanopore:
+rule compress_glopp_subdir:
     input:
-        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}.fastq'
+        rules.glopp_done.output
     output:
-        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.nanopore.ctg.lay.gz'
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.{dirname}.tar.gz'
     params:
-        preset = '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R',
-        of = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.nanopore'
-    conda:
-        config['softparams']['conda']['wtdbg2']
-    log:
-        'logs/{group}/glopp_wtdbg2/wtdbg2.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.nanopore.log'
-    benchmark:
-        'benchmarks/{group}/glopp_wtdbg2/wtdbg2.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.nanopore.txt'
-    threads:
-        4
+        path = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/*/{dirname}'
     shell:
-        'wtdbg2 {params.preset} -t {threads} -i {input} -o {params.of} 2> {log}'
+        'tar -czvf {output} {params.path} --remove-files'
 
-checkpoint wtdbg2_hifi:
+rule prep_glopp_outputs:
     input:
-        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}.fastq'
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.haplotypes.tar.gz',
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.local_parts.tar.gz',
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.long_reads.tar.gz',
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.short_reads.tar.gz',
     output:
-        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.hifi.ctg.lay.gz'
-    params:
-        preset = '-x ccs -R',
-        of = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.hifi'
-    conda:
-        config['softparams']['conda']['wtdbg2']
-    log:
-        'logs/{group}/glopp_wtdbg2/wtdbg2.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.hifi.log'
-    benchmark:
-        'benchmarks/{group}/glopp_wtdbg2/wtdbg2.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.hifi.txt'
-    threads:
-        4
-    shell:
-        'wtdbg2 {params.preset} -t {threads} -i {input} -o {params.of} 2> {log}'
+        touch('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/prep.done')
+    priority:
+        1
 
-rule wtpoa_run:
+checkpoint extract_glopp_reads:
     input:
-        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.{wpreset}.ctg.lay.gz'
+        tar = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.{rtype}.tar.gz',
+        pre = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/prep.done'
     output:
-        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.{wpreset}.ctg.run.fa'
-    conda:
-        config['softparams']['conda']['wtdbg2']
-    log:
-        'logs/{group}/glopp_wtdbg2/wtpoa.{group}.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.{wpreset}.log'
-    benchmark:
-        'benchmarks/{group}/glopp_wtdbg2/wtpoa.{refori}.{gmode}.{vcaller}.{contigID}.{rtype}.{partID}.{wpreset}.txt'
-    threads:
-        4
+        temp('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.{rtype}.done.tmp')
     shell:
-        'wtpoa-cns -t {threads} -i {input} -fo {output} 2> {log}'
-
-rule wtpoa_empty:
-    output:
-        touch('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.{wpreset}.ctg.empty.fa')
-
-def check_wtdgb2_out(wildcards):
-    wpreset = wildcards['wpreset']
-    if wpreset == 'hifi':
-        wtbg2res = str(checkpoints.wtdbg2_hifi.get(** wildcards).output)
-    elif wpreset == 'nanopore':
-        wtbg2res = str(checkpoints.wtdbg2_nanopore.get(** wildcards).output)
-    else:
-        raise Exception (f'No wtdbg2 rule for preset {wpreset}')
-
-    if is_nonempty_gz_file(wtbg2res):
-        return wtbg2res[:-7] + '.run.fa'
-    else:
-        return wtbg2res[:-7] + '.empty.fa'
-
-rule wtpoa_join:
-    input:
-        check_wtdgb2_out
-    output:
-        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/{rtype}/{partID}/{partID}.{wpreset}.ctg.fa'
-    shell:
-        'mv {input} {output}'
+        'tar -xf {input.tar} && touch {output}'
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
+# Assembly
 
-def aggregate_input_wtgdb2(wildcards):
-    checkpoint_output = checkpoints.run_assembly.get(** wildcards).output[0][:-5]
-    f = os.path.join(checkpoint_output, '*', wildcards.rtype, '*.fastq')
-    f = glob.glob(f)
+WTDBG2PRESETS = {
+    'hifi': '-x ccs -R',
+    'nanopore': '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
+}
 
-    # Important here, we define the wtdbg2 preset based on the used glopp mode
-    wpreset  = WTDBG2PRESETS[wildcards.gmode]
+GMODES = {
+    'illumina':     'illumina',
+    'nanopore':     'nanopore',
+    'hybrid':       'nanopore',
+    'pacbio_bbmap': 'hifi'
+}
 
-    for idx, fname in enumerate(f):
+def get_preset(gmode):
+    for key, value in GMODES.items():
+        if gmode.startswith(key):
+            return value
 
-        if os.stat(fname).st_size == 0:
-            # Sometime we have empty files, we juste ignore them
-            continue
+    raise Exception(f'Unable to define preset for {gmode}')
 
-        partID = os.path.basename(fname)[:-6]
-        f[idx] = os.path.join(os.path.dirname(fname), partID, partID + '.' + wpreset + '.ctg.fa')
+def get_input_basename(wc):
+    checkpoints.extract_glopp_reads.get(** wc).output[0]
 
-    return f
+    fnames = f'phasing/glopp/{wc.group}/{wc.refori}/{wc.gmode}/{wc.vcaller}/*/{wc.rtype}/*.fastq'
+    fnames = glob.glob(fnames)
 
-rule wtdbg2_merge:
+    if wc.rtype == 'short_reads':
+        fnames = list({fname.strip()[:-14] for fname in fnames})
+
+    if wc.rtype == 'long_reads':
+        fnames = [fname.strip()[:-6] for fname in fnames]
+
+
+    # Important here, we define the preset based on the used glopp mode
+    assembler = wc.assembler
+    preset = get_preset(wc.gmode)
+
+    for idx, fname in enumerate(fnames):
+        partID = os.path.basename(fname)
+        fnames[idx] = os.path.join(os.path.dirname(fname), f'{assembler}.{partID}.{preset}')
+
+    return fnames
+
+def aggregate_output_fasta(wildcards):
+    f = get_input_basename(wildcards)
+    return [basename + '.fa' for basename in f]
+
+def aggregate_output_targz(wildcards):
+    f = get_input_basename(wildcards)
+    return [basename + '.tar.gz' for basename in f]
+
+# I end up using a script here to manage all the possibilites and limit the number of rules / checkpoints
+
+rule wtdbg2:
     input:
-        aggregate_input_wtgdb2
+        fastq = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/long_reads/{partID}.fastq'
     output:
-        'phasing/assemblies/{group}/{refori}.glopp.{gmode}.wtdbg2.{rtype}.{vcaller}.fa'
+        fa = temp('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/long_reads/wtdbg2.{partID}.{wpreset}.fa'),
+        ar = temp('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/long_reads/wtdbg2.{partID}.{wpreset}.tar.gz')
+    params:
+        wdir = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/long_reads/wtdbg2_{partID}_{wpreset}',
+        subname = lambda wc: wc.partID,
+        preset = lambda wc: WTDBG2PRESETS[wc.wpreset],
+        rmfq = 'True'
+    conda:
+        config['softparams']['conda']['wtdbg2']
+    log:
+        'logs/{group}/glopp_wtdbg2/wtdbg2.{group}.{refori}.{gmode}.{vcaller}.{contigID}.long_reads.{partID}.{wpreset}.log'
+    benchmark:
+        'benchmarks/{group}/glopp_wtdbg2/wtdbg2.{refori}.{gmode}.{vcaller}.{contigID}.long_reads.{partID}.{wpreset}.txt'
+    threads:
+        16
+    script:
+        'scripts/run_wtdbg2.py'
+
+# Note regarding unicyler
+# I decided to not use it because unicycler uses Spades under the hood
+# which is perfectly fine with regular good coverage genomes
+# but crashes when coverage is low which happens quite a lot when
+# dealing with this kind of cases (or short-binning as well for example)
+# I'm using abysspe instead but maybe something better could be use
+
+rule unicycler:
+    input:
+        r1 = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/{partID}_paired1.fastq',
+        r2 = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/{partID}_paired2.fastq'
+    output:
+        fa = temp('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/unicycler.{partID}.{wpreset}.fa'),
+        ar = temp('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/unicycler.{partID}.{wpreset}.tar.gz')
+    params:
+        wdir = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/unicycler_{partID}_{wpreset}',
+        rmfq = 'True'
+    conda:
+        config['softparams']['conda']['unicycler']
+    log:
+        'logs/{group}/glopp_unicycler/unicycler.{group}.{refori}.{gmode}.{vcaller}.{contigID}.short_reads.{partID}.{wpreset}.log'
+    benchmark:
+        'benchmarks/{group}/glopp_unicycler/unicycler.{refori}.{gmode}.{vcaller}.{contigID}.short_reads.{partID}.{wpreset}.txt'
+    threads:
+        16
+    script:
+        'scripts/run_unicycler.py'
+
+rule abysspe:
+    input:
+        r1 = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/{partID}_paired1.fastq',
+        r2 = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/{partID}_paired2.fastq'
+    output:
+        fa = temp('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/abysspe.{partID}.{wpreset}.fa'),
+        ar = temp('phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/abysspe.{partID}.{wpreset}.tar.gz')
+    params:
+        wdir = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{contigID}/short_reads/abysspe_{partID}_{wpreset}',
+        rmfq = 'True'
+    conda:
+        config['softparams']['conda']['abyss']
+    log:
+        'logs/{group}/glopp_abysspe/abysspe.{group}.{refori}.{gmode}.{vcaller}.{contigID}.short_reads.{partID}.{wpreset}.log'
+    benchmark:
+        'benchmarks/{group}/glopp_abysspe/abysspe.{refori}.{gmode}.{vcaller}.{contigID}.short_reads.{partID}.{wpreset}.txt'
+    threads:
+        16
+    script:
+        'scripts/run_abysspe.py'
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+
+rule merge_fasta:
+    input:
+        aggregate_output_fasta
+    output:
+        'phasing/assemblies/{group}/{refori}.glopp.{gmode}.{assembler}.{rtype}.{vcaller}.fa'
     script:
         'scripts/glopp_wtdbg2_merger.py'
 
-rule wtdbg2_compress_intermediate:
+rule concat_intermediate:
     input:
-        rules.wtdbg2_merge.output
+        aggregate_output_targz
     output: 
-        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{rtype}.wtdbg2.tar.gz'
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/{rtype}.{assembler}.tar.gz'
     params:
-        path = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/*/{rtype}/*_part'
+        path = 'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/*/{rtype}/{assembler}.*.tar.gz'
     shell:
-        'tar -czf {output} {params.path} --remove-files'
+        'cat {input} > {output}'
 
-rule wtdbg2_compress_fasta:
+rule compress_fasta:
     # Here we make sure we also compressed and remove all the small but numerous files
     # for clusters with file numbers limits (same as strainberry)
     input:
-        ic = rules.wtdbg2_compress_intermediate.output,
-        fa = rules.wtdbg2_merge.output
+        ic = rules.concat_intermediate.output,
+        fa = rules.merge_fasta.output
     output:
-        'phasing/assemblies/{group}/{refori}.glopp.{gmode}.wtdbg2.{rtype}.{vcaller}.fa.gz'
+        'phasing/assemblies/{group}/{refori}.glopp.{gmode}.{assembler}.{rtype}.{vcaller}.fa.gz'
     shell:
         'gzip {input.fa}'
 
 rule uncompress:
     input:
-        rules.wtdbg2_compress_fasta.output
+        rules.compress_fasta.output
     output: 
         temp('temp/assemblies/{group}/{refori}.glopp.{gmode}.{assembler}.{rtype}.{vcaller}.fa')
     shell:

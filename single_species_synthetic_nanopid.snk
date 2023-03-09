@@ -58,24 +58,11 @@ with open(fname) as f:
 # --------------------------------------------------------------------------------------------------------------------------------------------
 
 rule all:
-    input:
+    input:      
         'logs/configuration.json',
-        expand('stats/assemblies/{group}/inpref.glopp.{flavor}_{gpreset}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-            group=GROUPS, gpreset=GLOPP_PRESETS, flavor=('hybrid', 'nanopore')), #, 'pacbio_bbmap')), 
-        #expand('stats/assemblies/{group}/inpref.glopp.illumina_{gpreset}.abysspe.short_reads.lofreq/mummer/circos/done.empty',
-        #    group=GROUPS, gpreset=GLOPP_PRESETS),
-        #'stats/assemblies/klebsiella/none.megahit/mummer/circos/done.empty',
-        #'stats/assemblies/klebsiella/none.strainxpress.regular/mummer/circos/done.empty',
-        #'stats/assemblies/klebsiella/none.hifiasm_meta.bbmap.r_utg/mummer/circos/done.empty',
-        #'stats/assemblies/klebsiella/none.hifiasm_meta.bbmap.p_utg/mummer/circos/done.empty',
-        #'stats/assemblies/klebsiella/none.hifiasm_meta.bbmap.p_ctg/mummer/circos/done.empty',
-        #'stats/assemblies/klebsiella/none.hifiasm_meta.bbmap.a_ctg/mummer/circos/done.empty',
-        #'stats/assemblies/klebsiella/inpref.glopp.illumina_gp2169.abysspe.short_reads.lofreq/mummer/circos/done.empty',
-        #'stats/assemblies/klebsiella/inpref.glopp.hybrid_gp2169.abysspe.short_reads.lofreq/mummer/circos/done.empty',
-        #expand('stats/assemblies/{group}/inpref.glopp.{gtype}_{gpreset}.wtdbg2.long_reads.longshot/mummer/circos/done.empty', 
-        #    group=GROUPS, gpreset=GLOPP_PRESETS, gtype=('hybrid', 'nanopore', 'pacbio_bbmap')),
+        expand('stats/assemblies/{group}/inpref.glopp.nanopore_{gpreset}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
+            group=GROUPS, gpreset=GLOPP_PRESETS)
         
-
 rule copy_config:
     output:
         'logs/configuration.json'

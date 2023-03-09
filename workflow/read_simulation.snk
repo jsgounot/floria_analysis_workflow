@@ -85,6 +85,32 @@ rule nanopore_badread_average:
         --identity {params.identity} --glitches {params.glitches} --junk_reads {params.junk_reads} --random_reads {params.random_reads} \
          --chimeras {params.chimeras} --seed {params.seed} | gzip > {output}) 2> {log}'
 
+rule nanopore_badread_average_pid:
+    input:
+        rules.badread_make_ref.output
+    output:
+        'reads/{group}/nanopore/{sample}.average_pid{pid}.fastq.gz'
+    params:
+        quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
+        qscore_model = 'nanopore2020',
+        error_model = 'nanopore2020',
+        identity = lambda wc: str(wc.pid) + ',97.5,5',
+        glitches = '1000,25,25',
+        junk_reads = 1,
+        random_reads = 1,
+        chimeras = 1,
+        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
+    wildcard_constraints:
+        pid="\d+"
+    conda:
+        config['softparams']['conda']['badread']
+    log:
+        'logs/{group}/badread.{sample}.average_pid{pid}.log'
+    shell:
+        '(badread simulate --reference {input} --quantity {params.quantity} --error_model {params.error_model} --qscore_model {params.qscore_model} \
+        --identity {params.identity} --glitches {params.glitches} --junk_reads {params.junk_reads} --random_reads {params.random_reads} \
+         --chimeras {params.chimeras} --seed {params.seed} | gzip > {output}) 2> {log}'
+
 rule nanopore_badread_readsid_correction:
     input:
         'reads/{group}/nanopore/{sample}.{quality}.fastq.gz'
@@ -199,7 +225,7 @@ rule pacbio_pbsim_prepare:
     input:
         'references/used/{group}/sample/{sample}.fasta'
     output:
-        fasta = temp('reads/{group}/pacbio/{sample}.fasta')
+        fasta = 'reads/{group}/pacbio/{sample}.fasta'
     run:
         shell('echo ">{wildcards.sample}" > {output.fasta}')
         shell('grep -v "^>" {input} >> {output.fasta}')
@@ -261,9 +287,9 @@ rule pacbio_bbmap:
 
 rule pacbio_comp:
     input:
-        'reads/{group}/pacbio/{sample}_{model}_0001.fastq'
+        'reads/{group}/pacbio/{sample}_{pacbio_model}_0001.fastq'
     output:
-        'reads/{group}/pacbio/{sample}_{model}_0001.fastq.gz'
+        'reads/{group}/pacbio/{sample}_{pacbio_model}_0001.fastq.gz'
     threads:
         4
     shell:
@@ -273,7 +299,7 @@ rule pacbio_readsid_correction:
     input:
         rules.pacbio_comp.output
     output:
-        'reads/{group}/pacbio/{sample}_{model}_0001.rids_corrected.fastq.gz'
+        'reads/{group}/pacbio/{sample}_{pacbio_model}_0001.rids_corrected.fastq.gz'
     params:
         sample = lambda wc: wc.sample
     script:
@@ -283,7 +309,7 @@ def get_pacbio_reads(wildcards):
     group = wildcards.group
     samples = [sample for sample in config[group] if sample != 'internal']
     return expand(
-        'reads/{group}/pacbio/{sample}_{{model}}_0001.rids_corrected.fastq.gz',
+        'reads/{group}/pacbio/{sample}_{{pacbio_model}}_0001.rids_corrected.fastq.gz',
         group=group, sample=samples
         )
 
@@ -291,8 +317,6 @@ rule merge_pacbio:
     input:
         get_pacbio_reads
     output:
-        'reads/{group}/pacbio/merged_{model}.fastq.gz'
+        'reads/{group}/pacbio/merged_{pacbio_model}.fastq.gz'
     shell:
         'cat {input} > {output}'
-
-
