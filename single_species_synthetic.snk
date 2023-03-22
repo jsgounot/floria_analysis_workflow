@@ -66,8 +66,51 @@ gpdic = {
 
 gp_illumina = 'illumina_gp9'
 gp_nanopore = 'nanopore_gp2439'
-gp_hybrid   = 'hybrid_gp2583'
+gp_hybrid   = 'hybrid_gp2115' # changed it 
 gp_hifi     = 'pacbio_bbmap_gp1683'
+
+'''
+"gp2439": [
+        "-l 75000",
+        "-e 0.04",
+        "-d 0.001",
+        "-n 10",
+        "-X"
+    ],
+
+"gp2583": [
+        "-l 100000",
+        "-e 0.005",
+        "-d 0.001",
+        "-n 10",
+        "-X"
+    ],
+    
+"gp2115": [
+        "-l 50000",
+        "-e 0.005",
+        "-d 0.001",
+        "-n 10",
+        "-X"
+    ],
+
+"gp1035": [
+        "-l 15000",
+        "-e 0.04",
+        "-d 0.001",
+        "-n 10",
+        "-X"
+    ],
+
+"gp945": [
+        "-l 15000",
+        "-e 0.005",
+        "-d 0.001",
+        "-n 10",
+        "-X"
+    ],
+
+'''
 
 rule all:
     input:      
@@ -117,8 +160,8 @@ rule all:
         #expand(f'stats/assemblies/{{group}}/unicycler_hybrid.glopp.{gp_hybrid}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
         #    group=GROUPS),
         #
-        expand('stats/assemblies/{group}/none.hifiasm_meta.bbmap.r_utg/mummer/circos/done.empty',
-            group=GROUPS),
+        #expand('stats/assemblies/{group}/none.hifiasm_meta.bbmap.r_utg/mummer/circos/done.empty',
+        #    group=GROUPS),
         ## expand('stats/assemblies/{group}/hifiasm_meta.bbmap.m_ctg.glopp.pacbio_bbmap_gp1341.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
         ##     group=GROUPS),
         ## expand('stats/assemblies/{group}/hifiasm_meta.bbmap.p_ctg.glopp.pacbio_bbmap_gp1341.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
@@ -130,16 +173,29 @@ rule all:
         #expand(f'stats/assemblies/{{group}}/flye_nanopore_raw.glopp.{gp_hifi}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
         #    group=GROUPS),
         
-        expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_illumina}.abysspe.short_reads.lofreq/mummer/circos/done.empty',
-            group=GROUPS),
+        #expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_illumina}.abysspe.short_reads.lofreq/mummer/circos/done.empty',
+        #    group=GROUPS),
         expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_nanopore}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
             group=GROUPS),
         expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_hybrid}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
             group=GROUPS),
-        expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_hifi}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-            group=GROUPS),
+        #expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_hifi}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
+        #    group=GROUPS),
         
+        #expand(f'stats/assemblies/{{group}}/inpref.glopp.hybrid_gp2115.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
+        #    group=GROUPS),
+
+        #expand(f'stats/assemblies/{{group}}/inpref.glopp.hybrid_gp945.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
+        #    group=GROUPS),
+        #expand(f'stats/assemblies/{{group}}/inpref.glopp.nanopore_gp1035.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
+        #    group=GROUPS),
+
         expand('stats/assemblies/{group}/inpref.strainberry.nanopore/mummer/circos/done.empty',
+            group=GROUPS),
+
+        expand(f'phasing/glopp/{{group}}/inpref/{gp_nanopore}/longshot/glopp.long_reads.readsinfo.gz',
+            group=GROUPS),
+        expand(f'phasing/glopp/{{group}}/inpref/{gp_hybrid}/longshot/glopp.long_reads.readsinfo.gz',
             group=GROUPS),
 
 rule copy_config:

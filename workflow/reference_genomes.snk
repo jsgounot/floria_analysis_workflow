@@ -21,6 +21,7 @@ rule download_ncbiasbly:
     shell:
         'esearch -db assembly -query "{wildcards.ncbiid}" | elink -target nucleotide -name assembly_nuccore_refseq | efetch -format fasta > {output} && [[ -s {output} ]]'
 
+'''
 rule simuG:
     input:
         exe = config['softparams']['soft']['simuG'],
@@ -36,6 +37,17 @@ rule simuG:
         'logs/{group}/simuG.{sample}.log'
     shell:
         '{input.exe} -r {input.ref} -p {params.prefix} -snp_count {params.snp_count} -indel_count {params.indel_count} -seed {params.seed} > {log}'
+'''
+
+rule simu_perso:
+    input:
+        ref = lambda wc: get_sim_param(wc, config, 'ref')
+    output:
+        'references/simulated/{group}/{sample}.simseq.genome.fa'
+    params:
+        snps_rate = lambda wc: get_sim_param(wc, config, 'snp_prc') / 100
+    script:
+        'scripts/simulate_mutate.py'
 
 rule link_fasta:
     input:

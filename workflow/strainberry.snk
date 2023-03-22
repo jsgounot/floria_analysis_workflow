@@ -39,7 +39,7 @@ rule strainberry_nanopore:
     benchmark:
         'benchmarks/{group}/strainberry.{refori}.nanopore.txt'
     threads:
-        1
+        16
     log:
         'logs/{group}/strainberry.{refori}.nanopore.log'
     shell:

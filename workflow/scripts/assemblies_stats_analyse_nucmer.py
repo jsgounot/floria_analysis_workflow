@@ -61,9 +61,9 @@ def extract_sim(df):
     qlen = df.drop_duplicates('Q_NAME').set_index('Q_NAME')['Q_LEN'].to_dict()
 
     sdf = avgIdy.merge(cov, how='outer')
-    sdf['size_ref'] = sdf['Q_NAME'].map(qlen)
+    sdf['size_query'] = sdf['Q_NAME'].map(qlen)
 
-    sdf['prc_ref'] = (100 * sdf['aligned_bases']) / sdf['size_ref']
+    sdf['prc_query'] = (100 * sdf['aligned_bases']) / sdf['size_query']
 
     return sdf
 
@@ -71,7 +71,7 @@ def filter_best(df):
     sdf = extract_sim(df)
 
     # Minimum 50% of the reference bases covered
-    sdf = sdf[sdf['prc_ref'] > 50]
+    sdf = sdf[sdf['prc_query'] > 50]
 
     # We select the best alignment based on a score
     # score = average identity * aligned bases

@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2023-01-25 14:55:16
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-01-25 15:08:58
+# @Last Modified time: 2023-03-22 13:23:02
 
 import glob, sys
 import shutil
@@ -29,8 +29,10 @@ for dname in dnames:
 	search = f'res/{maindir}/phasing/assemblies/{subdir}/inpref.glopp.{gdir}.wtdbg2.long_reads.longshot.fa.gz'
 	c[search in fnames] += 1
 
-	if search not in fnames and rm:
+	if search not in fnames:
 		print (dname)
+
+	if search not in fnames and rm:
 		shutil.rmtree(dname)
 
 print (c)

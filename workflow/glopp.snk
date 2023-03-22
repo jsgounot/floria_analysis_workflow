@@ -309,6 +309,14 @@ rule abysspe:
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
 
+rule get_reads_info:
+    input:
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.{rtype}.tar.gz'
+    output:
+        'phasing/glopp/{group}/{refori}/{gmode}/{vcaller}/glopp.{rtype}.readsinfo.gz'
+    script:
+        'scripts/glopp_read_stats.py'
+
 rule merge_fasta:
     input:
         aggregate_output_fasta
