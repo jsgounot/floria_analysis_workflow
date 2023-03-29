@@ -20,5 +20,6 @@
 	"strainberry": "envs/strainberry.yaml",
 	"glopp": "envs/merged.yaml",
 	"unicycler": "unicycler",
-	"abyss": "envs/abyss.yaml"
+	"abyss": "envs/abyss.yaml",
+	"pysam": "base"
 }

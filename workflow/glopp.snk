@@ -1,7 +1,7 @@
 import glob, os, json
 
 wildcard_constraints:
-    vcaller="longshot|lofreq",
+    vcaller="longshot|lofreq|binocustom",
     rtype="long_reads|short_reads"
 
 rule link_vcf:

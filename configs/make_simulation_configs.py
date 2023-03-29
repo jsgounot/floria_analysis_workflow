@@ -192,7 +192,7 @@ outfile = './kleb_covgrad_3strains.json'
 jdata = {}
 
 default = {
-	"ncbinuc": ref,
+	"ncbiasbly": ref,
 	"mapping_ref": "True",
 	"quantity": 15,
 	"circular": "true",
@@ -206,7 +206,7 @@ for idx, cov in enumerate(gradient, start=1):
 		if key != 'mapping_ref'}
 
 	mut['quantity'] = cov
-	mut['ncbinuc'] = 'ASM1990030v1'
+	mut['ncbiasbly'] = 'ASM1990030v1'
 
 	for idx2, cov2 in enumerate(gradient, start=1):
 		name = f'simulated_{rname}_{idx}_{idx2}'
@@ -214,7 +214,7 @@ for idx, cov in enumerate(gradient, start=1):
 		mut2 = {key: value for key, value in default.items()
 			if key != 'mapping_ref'}
 
-		mut2['ncbinuc'] = 'ASM1990032v1'
+		mut2['ncbiasbly'] = 'ASM1990032v1'
 		mut2['quantity'] = cov2
 
 		jdata[name] = {

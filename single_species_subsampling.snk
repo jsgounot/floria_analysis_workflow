@@ -66,7 +66,7 @@ gpdic = {
 
 gp_illumina = 'illumina_gp9'
 gp_nanopore = 'nanopore_gp1035'
-gp_hybrid   = 'hybrid_gp2115' # changed it 
+gp_hybrid   = 'hybrid_gp945' # changed it 
 gp_hifi     = 'pacbio_bbmap_gp1683'
 
 '''
@@ -118,78 +118,10 @@ rule all:
         expand('refcomp/{group}.mummer.txt', group=GROUPS),
         expand('refcomp/{group}.fastani.txt', group=GROUPS),
         
-        #
-        #expand('stats/assemblies/{group}/none.megahit/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/megahit.glopp.{gp_illumina}.abysspe.short_reads.lofreq/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #
-        #expand('stats/assemblies/{group}/none.unicycler_short/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/unicycler_short.glopp.{gp_illumina}.abysspe.short_reads.lofreq/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #
-        #expand('stats/assemblies/{group}/none.strainxpress.regular/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #
-        #expand('stats/assemblies/{group}/none.flye_nanopore_raw/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/flye_nanopore_raw.glopp.{gp_nanopore}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand('stats/assemblies/{group}/flye_nanopore_raw.strainberry.nanopore/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #
-        #expand('stats/assemblies/{group}/none.unicycler_long/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/unicycler_long.glopp.{gp_nanopore}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),    
-        #expand('stats/assemblies/{group}/unicycler_long.strainberry.nanopore/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #
-        #expand('stats/assemblies/{group}/none.operams/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand('stats/assemblies/{group}/operams.strainberry.nanopore/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/operams.glopp.{gp_hybrid}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #
-        #expand('stats/assemblies/{group}/none.unicycler_hybrid/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand('stats/assemblies/{group}/unicycler_hybrid.strainberry.nanopore/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/unicycler_hybrid.glopp.{gp_hybrid}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #
-        #expand('stats/assemblies/{group}/none.hifiasm_meta.bbmap.r_utg/mummer/circos/done.empty',
-        #    group=GROUPS),
-        ## expand('stats/assemblies/{group}/hifiasm_meta.bbmap.m_ctg.glopp.pacbio_bbmap_gp1341.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        ##     group=GROUPS),
-        ## expand('stats/assemblies/{group}/hifiasm_meta.bbmap.p_ctg.glopp.pacbio_bbmap_gp1341.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        ##     group=GROUPS),
-        ## expand('stats/assemblies/{group}/hifiasm_meta.bbmap.m_ctg.glopp.pacbio_bbmap_gp1341.wtdbg2.long_reads.lofreq/mummer/circos/done.empty',
-        ##     group=GROUPS),
-        ## expand('stats/assemblies/{group}/hifiasm_meta.bbmap.p_ctg.glopp.pacbio_bbmap_gp1341.wtdbg2.long_reads.lofreq/mummer/circos/done.empty',
-        ##     group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/flye_nanopore_raw.glopp.{gp_hifi}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-        
-        #expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_illumina}.abysspe.short_reads.lofreq/mummer/circos/done.empty',
-        #    group=GROUPS),
         expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_nanopore}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
             group=GROUPS),
         expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_hybrid}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
             group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_hifi}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-        
-        #expand(f'stats/assemblies/{{group}}/inpref.glopp.hybrid_gp2115.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-
-        #expand(f'stats/assemblies/{{group}}/inpref.glopp.hybrid_gp945.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/inpref.glopp.nanopore_gp1035.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-
         expand('stats/assemblies/{group}/inpref.strainberry.nanopore/mummer/circos/done.empty',
             group=GROUPS),
 
@@ -221,7 +153,7 @@ module rc:
 use rule * from rc as rc_*
 
 module rs:
-    snakefile: "workflow/read_simulation.snk"
+    snakefile: "workflow/read_subsample.snk"
     config: config
 
 use rule * from rs as rs_*

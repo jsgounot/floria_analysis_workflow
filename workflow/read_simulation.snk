@@ -85,6 +85,13 @@ rule nanopore_badread_average:
         --identity {params.identity} --glitches {params.glitches} --junk_reads {params.junk_reads} --random_reads {params.random_reads} \
          --chimeras {params.chimeras} --seed {params.seed} | gzip > {output}) 2> {log}'
 
+def make_pid(wc):
+    mean = float(wc.pid)
+    maxv = mean + 10 
+    maxv = maxv if maxv < 100 else 100
+    std  = 5
+    return f'{mean:.1f},{maxv:.1f},{std}'
+
 rule nanopore_badread_average_pid:
     input:
         rules.badread_make_ref.output
@@ -94,7 +101,7 @@ rule nanopore_badread_average_pid:
         quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
         qscore_model = 'nanopore2020',
         error_model = 'nanopore2020',
-        identity = lambda wc: str(wc.pid) + ',97.5,5',
+        identity = make_pid,
         glitches = '1000,25,25',
         junk_reads = 1,
         random_reads = 1,
@@ -177,15 +184,25 @@ rule compress_read:
     input:
         'reads/{group}/illumina/{sample}_{ridx}.fq'
     output:
-        'reads/{group}/illumina/{sample}_{ridx}.fq.gz'
+        temp('reads/{group}/illumina/{sample}_{ridx}.fq.gz')
     shell:
         'gzip {input}'
+
+rule illumina_readsid_correction:
+    input:
+        rules.compress_read.output
+    output:
+        'reads/{group}/illumina/{sample}_{ridx}.rids_corrected.fq.gz'
+    params:
+        sample = lambda wc: wc.sample
+    script:
+        'scripts/rename_fastqids.py'
 
 def get_illumina_reads(wildcards):
     group = wildcards.group
     samples = [sample for sample in config[group]]
     return expand(
-        'reads/{group}/illumina/{sample}_{ridx}.fq.gz',
+        'reads/{group}/illumina/{sample}_{ridx}.rids_corrected.fq.gz',
         group=group, sample=samples, ridx=wildcards.ridx
         )
 

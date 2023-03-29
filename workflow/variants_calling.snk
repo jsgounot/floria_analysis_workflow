@@ -30,3 +30,20 @@ rule longshot:
         'benchmarks/{group}/vcalling.{refori}.{readtype}.longshot.txt'
     shell:
         'longshot --ref {input.fasta} --out {output} --bam {input.aln} -F -n 2> {log}'
+
+rule binomial_custom:
+    input:
+        fasta   = 'references/used/{group}/refmap/{refori}.fa',
+        fai     = 'references/used/{group}/refmap/{refori}.fa.fai',
+        aln     = 'mapping/{group}/{refori}.{readtype}.bam',
+        aln_bai = 'mapping/{group}/{refori}.{readtype}.bam.bai'
+    output:
+        'vcalling/{group}/{refori}.{readtype}.binocustom.vcf'
+    conda:
+        config['softparams']['conda']['pysam']
+    log:
+        'logs/{group}/vcalling.{refori}.{readtype}.binocustom.log'
+    benchmark:
+        'benchmarks/{group}/vcalling.{refori}.{readtype}.binocustom.txt'
+    script:
+        'scripts/vcalling.binocustom.py'

@@ -1,0 +1,43 @@
+import os
+
+rule subsample_illumina:
+    input:
+        r1  = lambda wc: config[wc.group][wc.sample]['illumina_r1'],
+        r2  = lambda wc: config[wc.group][wc.sample]['illumina_r2'],
+        ref = 'references/used/{group}/sample/{sample}.fasta'
+    output:
+        r1o = 'reads/{group}/illumina/{sample}_R1.fastq.gz',
+        r2o = 'reads/{group}/illumina/{sample}_R2.fastq.gz',
+    params:
+        cov  = lambda wc: config[wc.group][wc.sample]['quantity'],
+        seed = lambda wc: config[wc.group][wc.sample]['seed']
+    script:
+        'scripts/read_subsample_illumina.py'
+
+rule subsample_merge_illumina:
+    input:
+        lambda wc: [f'reads/{{group}}/illumina/{sample}_{{ridx}}.fastq.gz' for sample in config[wc.group]]
+    output:
+        'reads/{group}/illumina/merged/{ridx}.fastq.gz'
+    shell:
+        'cat {input} > {output}'
+
+rule subsample_nanopore:
+    input:
+        reads = lambda wc: config[wc.group][wc.sample]['nanopore'],
+        ref  = 'references/used/{group}/sample/{sample}.fasta'
+    output:
+        'reads/{group}/nanopore/{sample}.fastq.gz'
+    params:
+        cov  = lambda wc: config[wc.group][wc.sample]['quantity'],
+        seed = lambda wc: config[wc.group][wc.sample]['seed']
+    script:
+        'scripts/read_subsample_nanopore.py'
+
+rule subsample_merge_nanopore:
+    input:
+        lambda wc: [f'reads/{{group}}/nanopore/{sample}.fastq.gz' for sample in config[wc.group]]
+    output:
+        'reads/{group}/nanopore/merged.fastq.gz'
+    shell:
+        'cat {input} > {output}'
