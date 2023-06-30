@@ -1,0 +1,273 @@
+import os
+from scripts import utilities
+
+kdb = config['softparams']['soft']['krakendb']
+kdb_fasta = os.path.join(kdb, 'library', 'library.fna.gz')
+kdb_meta = kdb_fasta + '.meta.tsv.gz'
+
+rule kraken_metafromlib:
+	input:
+		kdb_fasta
+	output:
+		kdb_meta
+	script:
+		'scripts/kraken_metafromlib.py'
+
+def getreads(wc):
+    rtype = wc.krtype
+    group = wc.group
+
+    if rtype == 'illumina':
+        r1 = f'reads/{group}/illumina/merged/R1.fastq.gz'
+        r2 = f'reads/{group}/illumina/merged/R2.fastq.gz'
+        return [r1, r2]
+
+    return f'reads/{group}/{rtype}/merged.fastq.gz'
+
+rule kraken:
+    input:
+        reads = getreads,
+        db = config['softparams']['soft']['krakendb']
+    output:
+        report = 'kraken/{group}/kraken.{krtype}.report.tsv',
+        output = 'kraken/{group}/kraken.{krtype}.output.tsv'
+    threads:
+        utilities.get_generic_threads
+    conda:
+        config['softparams']['conda']['kraken2']
+    params:
+        extraopt = lambda wc: '--paired' if wc.krtype == 'illumina' else ''
+    benchmark:
+        'benchmarks/{group}/kraken/run.{krtype}.txt'
+    shell:
+        'kraken2 --db {input.db} --threads {threads} --output {output.output} \
+            --report {output.report} --gzip-compressed {params.extraopt} {input.reads}'
+
+rule compress_out:
+    input:
+        rules.kraken.output.output
+    output:
+        'kraken/{group}/kraken.{krtype}.output.tsv.gz'
+    benchmark:
+        'benchmarks/{group}/kraken/compress.{krtype}.txt'
+    shell:
+        'gzip {input}'
+
+rule process_kraken:
+    input:
+        report = rules.kraken.output.report,
+        output = rules.compress_out.output[0],
+        meta = kdb_meta
+    output:
+        report = 'kraken/{group}/kraken.{krtype}.report.cov.tsv',
+        taxlist = 'kraken/{group}/kraken.{krtype}.report.taxids.txt'
+    params:
+        mincov = 5
+    benchmark:
+        'benchmarks/{group}/kraken/process.{krtype}.txt'
+    script:
+        'scripts/kraken_ref_process.py'
+
+rule make_ref:
+    input:
+        taxlist = rules.process_kraken.output.taxlist,
+        fasta = kdb_fasta
+    output:
+        'kraken/{group}/ref.{krtype}.fa.gz'
+    benchmark:
+        'benchmarks/{group}/kraken/makeref.{krtype}.txt'
+    script:
+        'scripts/kraken_ref_make_ref.py'
+
+# -----------------------------------
+# For phasers with the ref mixed together
+
+rule extract_ref:
+    input:
+        rules.make_ref.output[0]
+    output:
+        temp('kraken/{group}/ref.{krtype}.fa')
+    shell:
+        'zcat {input} > {output}'
+
+rule presplit_ref_index:
+    input:
+        rules.extract_ref.output[0]
+    output:
+        temp('kraken/{group}/ref.{krtype}.fa.fai')
+    conda:
+        config['softparams']['conda']['minimap2']
+    shell:
+        'samtools faidx {input}'
+
+# For phasers with the ref mixed together
+# -----------------------------------
+
+MINIMAP2_PRESET = {
+    'nanopore': 'map-ont',
+    'illumina': 'sr'
+}
+
+rule minimap2:
+    input:
+        reads = getreads,
+        ref = rules.make_ref.output
+    output:
+        temp('kraken/{group}/ref.{krtype}.bam')
+    threads:
+        utilities.get_generic_threads
+    params:
+        preset = lambda wc: MINIMAP2_PRESET[wc.krtype]
+    conda:
+        config['softparams']['conda']['minimap2']
+    log:
+        'logs/{group}/kraken/minimap2.{krtype}.txt'
+    benchmark:
+        'benchmarks/{group}/kraken/minimap2.{krtype}.txt'
+    shell:
+        '(minimap2 -t {threads} -ax {params.preset} {input.ref} {input.reads} | \
+            samtools sort --threads {threads} > {output}) 2> {log}'
+
+rule baminfo:
+    input:
+        rules.minimap2.output[0]
+    output:
+        baminfo  = 'kraken/{group}/{krtype}.bam.info.tsv.gz',
+        maxrank  = 'kraken/{group}/{krtype}.bam.info.maxrank.tsv.gz',
+        top2 = 'kraken/{group}/{krtype}.bam.info.top2.tsv.gz'
+    conda:
+        config['softparams']['conda']['minimap2']
+    benchmark:
+        'benchmarks/{group}/kraken/baminfo.{krtype}.txt'
+    script: 
+        'scripts/kraken_ref_baminfo.py'
+
+rule assign_mm_reads:
+    input:
+        bam = rules.minimap2.output[0],
+        maxrank = rules.baminfo.output['maxrank']
+    output:
+        'kraken/{group}/{krtype}.filtered.bam'
+    conda:
+        config['softparams']['conda']['strainberry']
+    log:
+        'logs/{group}/kraken/assign_reads.{krtype}.txt'
+    benchmark:
+        'benchmarks/{group}/kraken/assign_reads.{krtype}.txt'
+    script:
+        'scripts/kraken_ref_assign_mm_selection.py'
+
+rule samtools_depth:
+    input:
+        bam = rules.assign_mm_reads.output[0]
+    output:
+        'kraken/{group}/{krtype}.filtered.bam.cov.tsv.gz'
+    conda:
+        config['softparams']['conda']['minimap2']
+    params:
+        windowsize = 10000
+    script: 
+        'scripts/kraken_ref_samtools_depth.py'
+
+# ----------------------------
+# Split phasing part
+
+rule list_contigs:
+    input:
+        bam = rules.assign_mm_reads.output[0]
+    output:
+        'kraken/{group}/{krtype}.filtered.contigs.txt'
+    conda:
+        config['softparams']['conda']['minimap2']
+    shell:
+        'samtools view {input} | cut -f3 | uniq > {output}'
+
+rule bamindex:
+    input:
+        rules.assign_mm_reads.output[0]
+    output:
+        'kraken/{group}/{krtype}.filtered.bam.bai'
+    conda:
+        config['softparams']['conda']['minimap2']
+    shell:
+        'samtools index {input}'
+
+checkpoint split_list_contigs:
+    input:
+        lc = rules.list_contigs.output[0]
+    output:
+        'kraken/{group}/split/{krtype}.filtered.bam.tids.txt'
+    params:
+        dname = 'kraken/{group}/split/bamfa/'
+    benchmark:
+        'benchmarks/{group}/kraken/split_list_contigs.{krtype}.txt'
+    script:
+        'scripts/kraken_ref_split_list_contigs.py'
+
+rule split_bam:
+    input:
+        idx = rules.bamindex.output,
+        bam = rules.assign_mm_reads.output[0],
+        lc  = 'kraken/{group}/split/bamfa/{tid}.{krtype}.contigs.txt'
+    output:
+        temp('kraken/{group}/split/bamfa/{tid}.{krtype}.bam')
+    conda:
+        config['softparams']['conda']['minimap2']
+    benchmark:
+        'benchmarks/{group}/kraken/split_bam.{tid}.{krtype}.txt'
+    shell:
+        'cat {input.lc} | tr "\n" " " | xargs samtools view -bh {input.bam} > {output}'
+
+rule split_sort_bam:
+    input:
+        rules.split_bam.output[0]
+    output:
+        'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam'
+    threads:
+        4
+    conda:
+        config['softparams']['conda']['minimap2']
+    benchmark:
+        'benchmarks/{group}/kraken/sort_bam.{tid}.{krtype}.txt'
+    shell:
+        'samtools sort --threads {threads} {input} > {output}'
+
+rule split_sort_bam_index:
+    input:
+        rules.split_sort_bam.output[0]
+    output:
+        'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam.bai'
+    conda:
+        config['softparams']['conda']['minimap2']
+    shell:
+        'samtools index {input}'
+
+rule split_ref:
+    input:
+        lc  = 'kraken/{group}/split/bamfa/{tid}.{krtype}.contigs.txt',
+        fa = rules.make_ref.output[0]
+    output:
+        'kraken/{group}/split/bamfa/{tid}.{krtype}.fa'
+    benchmark:
+        'benchmarks/{group}/kraken/split_ref.{tid}.{krtype}.txt'
+    script:
+        'scripts/kraken_ref_split_ref.py'
+
+rule compress_fa:
+    input:
+        rules.split_ref.output[0]
+    output:
+        'kraken/{group}/split/bamfa/{tid}.{krtype}.fa.gz'
+    shell:
+        'gzip {input}'
+
+rule split_ref_index:
+    input:
+        rules.split_ref.output[0]
+    output:
+        'kraken/{group}/split/bamfa/{tid}.{krtype}.fa.fai'
+    conda:
+        config['softparams']['conda']['minimap2']
+    shell:
+        'samtools faidx {input}'
+

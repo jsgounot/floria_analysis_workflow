@@ -1,0 +1,178 @@
+import glob, os, json
+from scripts import utilities
+
+wildcard_constraints:
+    vcaller="longshot|lofreq|binocustom",
+    rtype="long_reads|short_reads",
+    refori="(?!kraken_ref)"
+
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# Glopp
+
+rule floria:
+    input:
+        exe   = config['softparams']['soft']['floria'],
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.{rtype}.bam',
+        bai   = 'mapping/{group}/{refori}.{rtype}.bam.bai',
+        vcf   = 'vcalling/{group}/{refori}.{rtype}.{vcaller}.floria_vcf_header'
+    output:
+        directory('phasing/floria/single/{group}/{refori}/{vcaller}/{rtype}/wdir/')
+    conda:
+        config['softparams']['conda']['floria']
+    threads:
+        utilities.get_generic_threads
+    log:
+        'logs/{group}/floria.single.{refori}.{vcaller}.{rtype}.log'
+    benchmark:
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{rtype}.txt'
+    shell:
+        '{input.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
+            --output-reads --gzip-reads > {log}'
+
+rule floria_hybrid:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.nanopore.bam',
+        bai   = 'mapping/{group}/{refori}.nanopore.bam.bai',
+        short = 'mapping/{group}/{refori}.illumina.bam',
+        vcf   = 'vcalling/{group}/{refori}.illumina.{vcaller}.floria_vcf_header',
+        exe   = config['softparams']['soft']['floria']
+    output:
+        directory('phasing/floria/single/{group}/{refori}/{vcaller}/hybrid/wdir')
+    threads:
+        utilities.get_generic_threads
+    log:
+        'logs/{group}/floria.single.{refori}.{vcaller}.hybrid.log'
+    benchmark:
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.hybrid.txt'
+    shell:
+        '{input.exe} -b {input.bam} -v {input.vcf} -o {output.outdir} -t {threads} -r {input.fasta} -H {input.short} \
+            --reassign-short --output-reads --gzip-reads > {log}'
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# Post-processing
+# This part is made to compress all directory for both space and files number reduction
+
+rule compress_floria_subdir:
+    input:
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir/'
+    output:
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{dirname}.tar.gz'
+    params:
+        path = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir/*/{dirname}'
+    shell:
+        'tar -czf {output} {params.path} --remove-files'
+
+rule prep_floria_outputs:
+    input:
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.vartig_info.tar.gz',
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.local_parts.tar.gz',
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.long_reads.tar.gz',
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.short_reads.tar.gz',
+    output:
+        touch('phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/prep.done')
+    priority:
+        1
+
+def get_reads(wc):
+    mtype = wc.gmode.split('_')[0]
+    if mtype == 'illumina':
+        return [
+            f'reads/{wc.group}/illumina/merged/R1.fastq.gz',
+            f'reads/{wc.group}/illumina/merged/R2.fastq.gz'
+        ]
+
+    elif mtype == 'pacbio':
+        model = wc.gmode.split('_')[1]
+        return [f'reads/{wc.group}/pacbio/merged_{model}.fastq.gz']
+
+    elif mtype == 'nanopore' or mtype == 'hybrid':
+        return [f'reads/{wc.group}/nanopore/merged.fastq.gz']
+    
+    else:
+        raise Exception(f'mtype not found: {mtype}')
+
+rule get_reads_info:
+    input:
+        res = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.tar.gz',
+        reads = get_reads
+    output:
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.readsinfo.gz'
+    script:
+        'scripts/floria_read_stats.py'
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# Assembly
+
+# I end up using a script for each assembly process here to make all the assemblies with one single rule
+# as fast, not overloading output, still work asynchroniously. Best decision I took during the last months
+
+# Note regarding unicyler
+# I decided to not use it because unicycler uses Spades under the hood
+# which is perfectly fine with regular good coverage genomes
+# but crashes when coverage is low which happens quite a lot when
+# dealing with this kind of cases (or short-binning as well for example)
+# I'm using abysspe instead but maybe something better could be use
+
+WTDBG2PRESETS = {
+    'hifi': '-x ccs -R',
+    'nano': '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
+}
+
+rule uncompress:
+    input:
+        #archives = rules.prep_floria_outputs.output,
+        rtype_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.tar.gz'
+    output:
+        temp(touch('phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.{assembler}.uncompressed'))
+    shell:
+        'tar xzvf {input.rtype_ar} --transform "s/fastq.gz/{wildcards.assembler}.fastq.gz/"'
+
+rule wtdbg2:
+    input:
+        reads_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.tar.gz',
+        flag = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.wtdbg2.uncompressed'
+    output:
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.wtdbg2.{rtype}.{preset}.fa.gz'
+    threads:
+        utilities.get_generic_threads
+    params:
+        preset = lambda wc: WTDBG2PRESETS[wc.preset]
+    conda:
+        config['softparams']['conda']['wtdbg2']
+    log:
+        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{rtype}.{preset}.wtdbg2.log'
+    benchmark:
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{rtype}.wtdbg2.{preset}.txt'
+    script:
+        'scripts/floria_run_wtdbg2.py'
+
+rule abysspe:
+    input:
+        reads_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.tar.gz',
+        flag = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.abysspe.uncompressed'
+    output:
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.abysspe.{rtype}.none.fa.gz'
+    threads:
+        utilities.get_generic_threads
+    conda:
+        config['softparams']['conda']['abyss']
+    log:
+        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{rtype}.abysspe.log'
+    benchmark:
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{rtype}.abysspe.txt'
+    script:
+        'scripts/floria_run_abysspe.py'
+
+rule get_assembly:
+    input:
+        archives = rules.prep_floria_outputs.output,
+        fasta = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.{assembler}.{rtype}.{preset}.fa.gz'
+    output:
+        temp('temp/assemblies/{group}/{refori}.{vcaller}.floria.{gmode}.{assembler}.{rtype}.{preset}.fa')
+    shell:
+        'zcat {input.fasta} > {output}'

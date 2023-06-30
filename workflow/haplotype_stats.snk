@@ -1,17 +1,39 @@
 REFERENCES = {
-    group: sorted(expand('references/used/{group}/sample/{sample}.fasta', group=group, sample=sorted(samples)))
+    group: sorted(expand('references/used/{group}/sample/{sample}.clean.fasta', group=group, sample=sorted(samples)))
     for group, samples in config.items()
 }
 
 REFERENCES_DICT = {
-    group: {sample : f'references/used/{group}/sample/{sample}.fasta' for sample in samples}
+    group: {sample : f'references/used/{group}/sample/{sample}.clean.fasta' for sample in samples}
     for group, samples in config.items()
 }
 
+# We need to rename references contigs to avoid
+# duplicated contig names, leading to circos issues
+
+rule rename_fasta_query:
+    input:
+        'temp/assemblies/{group}/{basename}.fa'
+    output:
+        temp('stats/assemblies/{group}/{basename}/ref.fa')
+    params:
+        sample = lambda wc: wc.basename
+    script:
+        'scripts/assemblies_stats_rename_fasta.py'
+
+rule rename_fasta_ref:
+    input:
+        'references/used/{group}/sample/{sample}.fasta'
+    output:
+        'references/used/{group}/sample/{sample}.clean.fasta'
+    params:
+        sample = lambda wc: wc.sample
+    script:
+        'scripts/assemblies_stats_rename_fasta.py'
 
 rule mummer_nucmer:
     input:
-        query = 'temp/assemblies/{group}/{basename}.fa',
+        query = 'stats/assemblies/{group}/{basename}/ref.fa',
         ref = lambda wc: REFERENCES[wc.group][int(wc.idx)]
     output:
         'stats/assemblies/{group}/{basename}/mummer/{idx}.delta'
@@ -68,7 +90,7 @@ rule extract_best_results:
 checkpoint make_best_subfa:
     input:
         table = rules.extract_best_results.output,
-        query = 'temp/assemblies/{group}/{basename}.fa'
+        query = 'stats/assemblies/{group}/{basename}/ref.fa'
     params:
         idx = lambda wc: wc.idx
     output:
@@ -151,7 +173,7 @@ rule compress_mummer:
     params:
         path = 'stats/assemblies/{group}/{basename}/mummer/[0-9].*'
     shell:
-        'tar -czvf {output} {params.path} --remove-files'
+        'tar -czf {output} {params.path} --remove-files'
 
 rule prepare_circos_coords:
     input:

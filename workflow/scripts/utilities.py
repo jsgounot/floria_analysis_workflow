@@ -2,7 +2,16 @@
 # @Author: jsgounot
 # @Date:   2022-04-01 17:34:35
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-03-06 10:26:47
+# @Last Modified time: 2023-06-19 08:57:24
+
+GENERIC_THREADS = 32
+GENERIC_THREADS_SPLIT = 16
+
+GENERIC_THREADS = 32
+GENERIC_THREADS_SPLIT = 32
+
+GENERIC_THREADS = 48
+GENERIC_THREADS_SPLIT = 8
 
 import os, copy
 import gzip
@@ -71,3 +80,9 @@ def is_nonempty_gz_file(name):
             return len(file_content) > 0
         except:
             return False
+
+def get_generic_threads(wc):
+    return GENERIC_THREADS
+
+def get_generic_threads_split(wc):
+    return GENERIC_THREADS_SPLIT

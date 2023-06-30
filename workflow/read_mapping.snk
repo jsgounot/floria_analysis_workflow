@@ -1,34 +1,4 @@
-from scripts.utilities import get_mapping_ref
-
-rule minimap2_pacbio:
-    input:
-        fasta = 'references/used/{group}/refmap/{refori}.fa',
-        lr = 'reads/{group}/pacbio/merged_{model}.fastq.gz'
-    output:
-        'mapping/{group}/{refori}.pacbio_{model}.bam'
-    conda:
-        config['softparams']['conda']['minimap2']
-    log:
-        'logs/{group}/minimap2.{refori}.pacbio.{model}.log'
-    threads:
-        16
-    shell:
-        '(minimap2 -t {threads} -ax map-pb {input.fasta} {input.lr} | samtools view -Sub - | samtools sort --threads {threads} - > {output}) 2> {log}'
-
-rule minimap2_nanopore:
-    input:
-        fasta = 'references/used/{group}/refmap/{refori}.fa',
-        lr = 'reads/{group}/nanopore/merged.fastq.gz'
-    output:
-        'mapping/{group}/{refori}.nanopore.bam'
-    conda:
-        config['softparams']['conda']['minimap2']
-    log:
-        'logs/{group}/minimap2.{refori}.nanopore.log'
-    threads:
-        16
-    shell:
-        '(minimap2 -t {threads} -ax map-ont {input.fasta} {input.lr} | samtools view -Sub - | samtools sort --threads {threads} - > {output}) 2> {log}'
+from scripts import utilities
 
 rule minimap2_illumina:
     input:
@@ -41,10 +11,46 @@ rule minimap2_illumina:
         config['softparams']['conda']['minimap2']
     log:
         'logs/{group}/minimap2.{refori}.illumina.log'
+    benchmark:
+        'benchmarks/{group}/minimap2.{refori}.illumina.txt'
     threads:
-        16
+        utilities.get_generic_threads
     shell:
         '(minimap2 -t {threads} -ax sr {input.fasta} {input.sr1} {input.sr2} | samtools view -Sub - | samtools sort --threads {threads} - > {output})  2> {log}'
+
+rule minimap2_nanopore:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        lr = 'reads/{group}/nanopore/merged.fastq.gz'
+    output:
+        'mapping/{group}/{refori}.nanopore.bam'
+    conda:
+        config['softparams']['conda']['minimap2']
+    log:
+        'logs/{group}/minimap2.{refori}.nanopore.log'
+    benchmark:
+        'benchmarks/{group}/minimap2.{refori}.nanopore.txt'
+    threads:
+        utilities.get_generic_threads
+    shell:
+        '(minimap2 -t {threads} -ax map-ont {input.fasta} {input.lr} | samtools view -Sub - | samtools sort --threads {threads} - > {output}) 2> {log}'
+
+rule minimap2_pacbio:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        lr = 'reads/{group}/pacbio/merged_{model}.fastq.gz'
+    output:
+        'mapping/{group}/{refori}.pacbio_{model}.bam'
+    conda:
+        config['softparams']['conda']['minimap2']
+    log:
+        'logs/{group}/minimap2.{refori}.pacbio.{model}.log'
+    benchmark:
+        'benchmarks/{group}/minimap2.{refori}.pacbio.{model}.txt'
+    threads:
+        utilities.get_generic_threads
+    shell:
+        '(minimap2 -t {threads} -ax map-pb {input.fasta} {input.lr} | samtools view -Sub - | samtools sort --threads {threads} - > {output}) 2> {log}'
 
 rule index_bam:
     input:
@@ -55,3 +61,37 @@ rule index_bam:
         config['softparams']['conda']['minimap2']
     shell:
         'samtools index {input}'
+
+# ----------------------------------------------------------------
+# Split mapping
+
+'''
+use rule minimap2_illumina as minimap2_illumina_split with:
+    input:
+        fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
+        sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
+        sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz'
+    output:
+        'mapping/{group}/split/{tid}.{krtype}.illumina.bam'
+    log:
+        'logs/{group}/split/minimap2.{tid}.{krtype}.illumina.log'
+    benchmark:
+        'benchmarks/{group}/split/minimap2.{tid}.{krtype}.illumina.txt'
+
+use rule minimap2_nanopore as minimap2_nanopore_split with:
+    input:
+        fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
+        lr = 'reads/{group}/nanopore/merged.fastq.gz'
+    output:
+        'mapping/{group}/split/{tid}.{krtype}.nanopore.bam'
+    log:
+        'logs/{group}/split/minimap2.{tid}.{krtype}.nanopore.log'
+    benchmark:
+        'benchmarks/{group}/split/minimap2.{tid}.{krtype}.nanopore.txt'
+
+use rule index_bam as index_bam_split with:
+    input:
+        'mapping/{group}/split/{tid}.{krtype}.{rtype}.bam'
+    output:
+        'mapping/{group}/split/{tid}.{krtype}.{rtype}.bam.bai'
+'''

@@ -1,0 +1,95 @@
+import os
+import json
+from pathlib import Path
+
+# NOT BEFORE RUNNING
+# THE ISSUE HERE IS THAT SNAKEMAKE IS EXTREMELY BAD AT HANDLING LARGE WORKFLOW WITH CONDITIONNAL
+# EXPRESSIONS SUCH AS THIS ONE. THEREFORE, MOST OF THE TIME WILL BE BE SPEND DOING NOTHING,
+# EVEN WORST, SNAKEMAKE WILL TAKE A RIDICULOUS AMOUNT OF RAM FOR NOTHING AT ALL.
+# TWO WAYS TO CIRCUMVENT THIS ISSUE:
+# 1. RUN YOUR PIPELINE MULTIPLE TIME WITH --until OPTION AND THREE OR LESS FINAL OUTPUT FILES
+# 2. RUN YOUR PIPELINE (I THINK IT WOULD WORK BUT DID NOT TEST) UNTIL CHECKPOINT RULES SUCH AS
+# run_assembly OR wtdbg2_nanopore USING --until AS WELL
+
+# --------------------------------------------------------------------------------------------------------------
+
+GROUPS = set(config)
+
+# --------------------------------------------------------------------------------------------------------------
+# SOFT & CONDA CONFIGURATION
+config['softparams'] = {}
+
+fname = workflow.source_path('softpaths.json')
+with open(fname) as f:
+    config['softparams']['soft'] = json.load(f)
+
+fname = workflow.source_path('condaenvs.json')
+with open(fname) as f:
+    config['softparams']['conda'] = json.load(f)
+
+# ---------------------------------------------------------------------------------------------------------------
+# WORKFLOW
+
+rule all:
+    input:      
+        'logs/configuration.json',
+        expand('phasing/floria/presplit/{group}/nanopore/longshot/assembly.wtdbg2.long_reads.nano.fa.gz',
+            group=GROUPS)
+
+rule copy_config:
+    output:
+        'logs/configuration.json'
+    params:
+        config = config
+    script:
+        'workflow/scripts/copyconfig.py'
+
+# ----------------------------------------------------------------------------------------------------------------
+
+rule msp_link_reads_illumina:
+    input:
+        lambda wc: os.path.abspath(config[wc.group]['illumina'][wc.rid])
+    output:
+        'reads/{group}/illumina/merged/{rid}.fastq.gz'
+    shell:
+        'ln -s {input} {output}'
+
+rule msp_link_reads_nanopore:
+    input:
+        lambda wc: os.path.abspath(config[wc.group]['nanopore'])
+    output:
+        'reads/{group}/nanopore/merged.fastq.gz'
+    shell:
+        'ln -s {input} {output}'
+
+# ----------------------------------------------------------------------------------------------------------------
+
+module kr:
+    snakefile: "workflow/kraken_ref.snk"
+    config: config
+
+use rule * from kr as kr_*
+
+module rm:
+    snakefile: "workflow/read_mapping.snk"
+    config: config
+
+use rule * from rm as rm_*
+
+module vc:
+    snakefile: "workflow/variants_calling.snk"
+    config: config
+
+use rule * from vc as vc_*
+
+module flps:
+    snakefile: "workflow/floria_presplit.snk"
+    config: config
+
+use rule * from flps as flps_*
+
+module flsp:
+    snakefile: "workflow/floria_split.snk"
+    config: config
+
+use rule * from flsp as flsp_*

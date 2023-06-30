@@ -1,0 +1,162 @@
+import glob, os, json
+from scripts import utilities
+
+wildcard_constraints:
+    vcaller="longshot|lofreq|binocustom",
+    rtype="long_reads|short_reads",
+
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# Glopp
+
+rule floria:
+    input:
+        exe   = config['softparams']['soft']['floria'],
+        fasta = 'kraken/{group}/ref.{krtype}.fa',
+        fai   = 'kraken/{group}/ref.{krtype}.fa.fai',
+        bam   = 'kraken/{group}/{krtype}.filtered.bam',
+        bai   = 'kraken/{group}/{krtype}.filtered.bam.bai',
+        vcf   = 'vcalling/{group}/presplit/{krtype}.{vcaller}.floria_vcf_header'
+    output:
+        directory('phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir/')
+    conda:
+        config['softparams']['conda']['floria']
+    threads:
+        utilities.get_generic_threads
+    log:
+        'logs/{group}/floria.presplit.{krtype}.{vcaller}.log'
+    benchmark:
+        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.txt'
+    shell:
+        '{input.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
+            --output-reads --gzip-reads > {log}'
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# Post-processing
+# This part is made to compress all directory for both space and files number reduction
+
+rule compress:
+    input:
+        rules.floria.output[0]
+    output:
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz'
+    priority:
+        1
+    shell:
+        'tar czf {output} {input}/* --remove-files'
+
+rule uncompress:
+    input:
+        rules.compress.output[0]
+    output:
+        temp(touch('phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.{assembler}.uncompressed'))
+    shell:
+        'tar xzf {input} --transform "s/fastq.gz/{wildcards.assembler}.fastq.gz/" --wildcards "*/{wildcards.rtype}/*.fastq.gz"'
+
+rule ploidy_table:
+    input:
+        archive = rules.compress.output[0],
+        fasta = 'kraken/{group}/ref.{krtype}.fa',
+        kraken = 'kraken/{group}/kraken.{krtype}.report.cov.tsv',
+        depth = 'kraken/{group}/{krtype}.filtered.bam.cov.tsv.gz',
+        vcf = 'vcalling/{group}/presplit/{krtype}.{vcaller}.floria_vcf_header'
+    output:
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/ploidy.tsv.gz'
+    script:
+        'scripts/floria_ploidy_table.py'
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# Assembly
+
+# I end up using a script for each assembly process here to make all the assemblies with one single rule
+# as fast, not overloading output, still work asynchroniously. Best decision I took during the last months
+
+# Note regarding unicyler
+# I decided to not use it because unicycler uses Spades under the hood
+# which is perfectly fine with regular good coverage genomes
+# but crashes when coverage is low which happens quite a lot when
+# dealing with this kind of cases (or short-binning as well for example)
+# I'm using abysspe instead but maybe something better could be use
+
+WTDBG2PRESETS = {
+    'hifi': '-x ccs -R',
+    'nano': '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
+}
+
+rule wtdbg2:
+    input:
+        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz',
+        flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.wtdbg2.uncompressed'
+    output:
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.wtdbg2.{rtype}.{preset}.fa.gz'
+    threads:
+        utilities.get_generic_threads
+    params:
+        preset = lambda wc: WTDBG2PRESETS[wc.preset]
+    conda:
+        config['softparams']['conda']['wtdbg2']
+    log:
+        'logs/{group}/floria.presplit.{krtype}.{vcaller}.wtdbg2.{rtype}.{preset}.log'
+    benchmark:
+        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.wtdbg2.{rtype}.{preset}.txt'
+    script:
+        'scripts/floria_run_wtdbg2.py'
+
+rule flye:
+    input:
+        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz',
+        flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.flye.uncompressed'
+    output:
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.flye.{rtype}.none.fa.gz'
+    threads:
+        utilities.get_generic_threads
+    conda:
+        config['softparams']['conda']['flye']
+    log:
+        'logs/{group}/floria.presplit.{krtype}.{vcaller}.flye.{rtype}.none.log'
+    benchmark:
+        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.flye.{rtype}.none.txt'
+    script:
+        'scripts/floria_run_flye.py'
+
+rule abysspe:
+    input:
+        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz',
+        flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.abysspe.uncompressed'
+    output:
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.abysspe.{rtype}.none.fa.gz'
+    threads:
+        utilities.get_generic_threads
+    conda:
+        config['softparams']['conda']['abyss']
+    log:
+        'logs/{group}/floria.presplit.{krtype}.{vcaller}.abysspe.{rtype}.log'
+    benchmark:
+        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.abysspe.{rtype}.txt'
+    script:
+        'scripts/floria_run_abysspe.py'
+
+rule megahit:
+    input:
+        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz',
+        flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.megahit.uncompressed'
+    output:
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.megahit.{rtype}.none.fa.gz'
+    threads:
+        utilities.get_generic_threads
+    conda:
+        config['softparams']['conda']['megahit']
+    log:
+        'logs/{group}/floria.presplit.{krtype}.{vcaller}.megahit.{rtype}.log'
+    benchmark:
+        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.megahit.{rtype}.txt'
+    script:
+        'scripts/floria_run_megahit.py'
+
+rule get_assembly:
+    input:
+        fasta = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.{assembler}.{rtype}.{preset}.fa.gz'
+    output:
+        temp('temp/assemblies/{group}/kraken_presplit.{krtype}.{vcaller}.floria.{assembler}.{rtype}.{preset}.fa')
+    shell:
+        'zcat {input.fasta} > {output}'

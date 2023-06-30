@@ -1,0 +1,59 @@
+from scripts import utilities
+
+# OLD NOTE
+# Thread note here: We provide here one single thread to strainberry while actually asking 16 of them in the command line `-c 16`
+# The reason is that most of the strainberry process is based on longshot, which in case of good reference assembly will not be well multhithreaded
+# Which can result in important time without CPU usage. Here we take the risk to use more CPU at one point (by using 15 more CPU) but this should still be ok.
+# TODO: Modify this behavior for the final release.
+
+rule strainberry:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.{rtype}.bam',  
+        bai   = 'mapping/{group}/{refori}.{rtype}.bam.bai',
+        exe   = config['softparams']['soft']['strainberry']
+    output:
+        directory = directory('phasing/strainberry/single/{group}/{refori}/{rtype}'),
+        scaffold  = protected('phasing/strainberry/single/{group}/{refori}/{rtype}/assembly.scaffolds.fa')
+    params:
+        add = lambda wc: '--nanopore ' if wc.rtype == 'nanopore' else ''
+    conda:
+        config['softparams']['conda']['strainberry']
+    benchmark:
+        'benchmarks/{group}/strainberry.single.{refori}.{rtype}.txt'
+    threads:
+        utilities.get_generic_threads
+    log:
+        'logs/{group}/strainberry.single.{refori}.{rtype}.log'
+    shell:
+        '{input.exe} -r {input.fasta} -b {input.bam} -o {output.directory} -c {threads} {params.add} 2> {log}'
+
+rule strainberry_compress_fasta:
+    input:
+        rules.strainberry.output['scaffold']
+    output:
+        'phasing/assemblies/{group}/{refori}.strainberry.{rtype}.fa.gz'
+    shell:
+        'gzip -c {input} > {output}'
+
+rule strainberry_compress_intermediate:
+    # This rule is used to compress and remove all the small but numerous files
+    # for clusters with file numbers limits
+    input:
+        rules.strainberry.output['scaffold']
+    output:
+        'phasing/strainberry/single/{group}/{refori}/{rtype}/strainberry_ns.tar.gz'
+    params:
+        path = 'phasing/strainberry/single/{group}/{refori}/{rtype}/strainberry_n*'
+    shell:
+        'tar -czf {output} {params.path} --remove-files'
+
+rule uncompress:
+    input:
+        fa = rules.strainberry_compress_fasta.output,
+        sc = rules.strainberry_compress_intermediate.output
+    output: 
+        temp('temp/assemblies/{group}/{refori}.{rtype}.strainberry.fa')
+    shell:
+        'zcat {input.fa} > {output}'

@@ -2,18 +2,18 @@
 # @Author: jsgounot
 # @Date:   2022-04-02 11:26:26
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2022-04-02 19:35:42
+# @Last Modified time: 2023-06-26 16:29:31
 
 # A copy of glopp script for a better embedding 
 # https://github.com/bluenote-1577/glopp/blob/flow/scripts/write_contig_headers_vcf.py
 
-
+import gzip
 from sys import argv
 
 def main(vcf_file, new_vcf):
 	refs = set()
 
-	with open(vcf_file) as f :
+	with gzip.open(vcf_file, 'rt') as f :
 
 		refs = {
 			line.split()[0] for line in f
@@ -22,7 +22,7 @@ def main(vcf_file, new_vcf):
 
 		refs = sorted(refs)
 
-	with open(vcf_file) as f :
+	with gzip.open(vcf_file, 'rt') as f :
 		with open(new_vcf, 'w') as fo:
 			for idx, line in enumerate(f):
 				if idx == 2:

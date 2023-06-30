@@ -126,7 +126,7 @@ rule nanopore_badread_readsid_correction:
     params:
         sample = lambda wc: wc.sample
     script:
-        'scripts/rename_fastqids.py'
+        'scripts/rs_rename_fastqids.py'
 
 def get_nanopore(wildcards):
     quality = config[wildcards.group][wildcards.sample]['nanopore']  
@@ -153,7 +153,7 @@ rule merge_nanopore:
     input:
         get_nanopore_reads
     output:
-        'reads/{group}/nanopore/merged.fastq.gz'
+        temp('reads/{group}/nanopore/merged.fastq.gz')
     shell:
         'cat {input} > {output}'
 
@@ -196,7 +196,7 @@ rule illumina_readsid_correction:
     params:
         sample = lambda wc: wc.sample
     script:
-        'scripts/rename_fastqids.py'
+        'scripts/rs_rename_fastqids.py'
 
 def get_illumina_reads(wildcards):
     group = wildcards.group
@@ -210,7 +210,7 @@ rule merge_illumina:
     input:
         get_illumina_reads
     output:
-        'reads/{group}/illumina/merged/{ridx}.fastq.gz'
+        temp('reads/{group}/illumina/merged/{ridx}.fastq.gz')
     shell:
         'cat {input} > {output}'
 
@@ -320,7 +320,7 @@ rule pacbio_readsid_correction:
     params:
         sample = lambda wc: wc.sample
     script:
-        'scripts/rename_fastqids.py'
+        'scripts/rs_rename_fastqids.py'
 
 def get_pacbio_reads(wildcards):
     group = wildcards.group
@@ -334,6 +334,6 @@ rule merge_pacbio:
     input:
         get_pacbio_reads
     output:
-        'reads/{group}/pacbio/merged_{pacbio_model}.fastq.gz'
+        temp('reads/{group}/pacbio/merged_{pacbio_model}.fastq.gz')
     shell:
         'cat {input} > {output}'

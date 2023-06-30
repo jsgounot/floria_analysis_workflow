@@ -6,6 +6,7 @@
 
 import glob, os, sys
 from itertools import combinations
+from collections import defaultdict, Counter
 from Bio import SeqIO
 
 dname = sys.argv[1]
@@ -16,6 +17,12 @@ for group in groups:
 	print (f'{os.path.basename(os.path.dirname(group))}:')
 	fnames = os.path.join(group, 'sample/*.fasta')
 	fnames = glob.glob(fnames)
+
+	# not really right but should be in most cases
+	ref = fnames[0]
+
+	sites = defaultdict(int)
+
 	for a, b in combinations(fnames, 2):
 		fa = {record.id: record.seq for record in SeqIO.parse(a, 'fasta')}
 		fb = {record.id: record.seq for record in SeqIO.parse(b, 'fasta')}
@@ -26,6 +33,7 @@ for group in groups:
 				for index, base in enumerate(aseq):
 					if base != bseq[index]:
 						diff += 1
+						if a == ref: sites[index] += 1
 					tot += 1
 
 		if tot:
@@ -33,3 +41,13 @@ for group in groups:
 			print (f'{os.path.basename(a)} {os.path.basename(b)} {diff} {tot} {prc:.1f}')
 		else:
 			print (f'{os.path.basename(a)} {os.path.basename(b)} Nothing to compare')
+
+	if sites:
+		prc = len(sites) * 100 / tot
+		print (f'# of polymorphic sites: {len(sites)}, prc: {prc:.1f}%')
+
+		allelic = Counter(sites.values())
+		print ('Allelic distribution:')
+		for a, b in allelic.items():
+			prc = b * 100 / sum(allelic.values())
+			print (f'# Alleles: {a}, count: {b}, prc: {prc:.1f}%')

@@ -108,4 +108,4 @@ rule mummer_merge:
     conda:
         config['softparams']['conda']['mummer']
     script:
-        'scripts/extract_mummer_dnadiff_report.py'
+        'scripts/rc_extract_mummer_dnadiff_report.py'

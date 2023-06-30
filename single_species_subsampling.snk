@@ -14,6 +14,7 @@ from pathlib import Path
 # GROUPS SETTING
 
 GROUPS = set(config)
+GROUPS_RC = [e for e in GROUPS if e != 'subgroup_1']
 
 DEFAULTL = '-l 15000'
 DEFAULTE = '-e 0.01'
@@ -110,25 +111,45 @@ gp_hifi     = 'pacbio_bbmap_gp1683'
         "-X"
     ],
 
+"gp1125": [
+        "-l 15000",
+        "-e 0.1",
+        "-d 0.001",
+        "-n 10",
+        "-X"
+    ],
+
 '''
 
 rule all:
     input:      
         'logs/configuration.json',
-        expand('refcomp/{group}.mummer.txt', group=GROUPS),
-        expand('refcomp/{group}.fastani.txt', group=GROUPS),
+        expand('refcomp/{group}.mummer.txt', group=GROUPS_RC),
+        expand('refcomp/{group}.fastani.txt', group=GROUPS_RC),
         
         expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_nanopore}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
             group=GROUPS),
-        expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_hybrid}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-            group=GROUPS),
+        
         expand('stats/assemblies/{group}/inpref.strainberry.nanopore/mummer/circos/done.empty',
             group=GROUPS),
 
         expand(f'phasing/glopp/{{group}}/inpref/{gp_nanopore}/longshot/glopp.long_reads.readsinfo.gz',
             group=GROUPS),
-        expand(f'phasing/glopp/{{group}}/inpref/{gp_hybrid}/longshot/glopp.long_reads.readsinfo.gz',
+
+        expand('stats/assemblies/{group}/none.flye_nanopore_raw/mummer/circos/done.empty',
             group=GROUPS),
+
+        #expand(f'stats/assemblies/{{group}}/inpref.glopp.nanopore_gp1125.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
+        #    group=GROUPS),
+        #expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_hybrid}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
+        #    group=GROUPS),
+        #expand(f'phasing/glopp/{{group}}/inpref/{gp_hybrid}/longshot/glopp.long_reads.readsinfo.gz',
+        #    group=GROUPS),
+
+        expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_illumina}.abysspe.short_reads.lofreq/mummer/circos/done.empty',
+            group=GROUPS),
+        expand('stats/assemblies/{group}/none.strainxpress.regular/mummer/circos/done.empty',
+            group=GROUPS)
 
 rule copy_config:
     output:

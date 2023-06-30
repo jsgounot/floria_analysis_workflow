@@ -17,9 +17,10 @@
 	"longshot": "envs/merged.yaml",
 	"lofreq": "envs/merged.yaml",
 	"strainxpress": "envs/strainxpress.yaml",
-	"strainberry": "envs/strainberry.yaml",
-	"glopp": "envs/merged.yaml",
+	"strainberry": "sberry",
+	"floria": "envs/merged.yaml",
 	"unicycler": "unicycler",
 	"abyss": "envs/abyss.yaml",
-	"pysam": "base"
+	"pysam": "base",
+	"kraken2": "kraken2"
 }

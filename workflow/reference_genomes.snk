@@ -22,6 +22,7 @@ rule download_ncbiasbly:
         'esearch -db assembly -query "{wildcards.ncbiid}" | elink -target nucleotide -name assembly_nuccore_refseq | efetch -format fasta > {output} && [[ -s {output} ]]'
 
 '''
+Does not work properly: 
 rule simuG:
     input:
         exe = config['softparams']['soft']['simuG'],
@@ -47,7 +48,7 @@ rule simu_perso:
     params:
         snps_rate = lambda wc: get_sim_param(wc, config, 'snp_prc') / 100
     script:
-        'scripts/simulate_mutate.py'
+        'scripts/rg_simulate_mutate.py'
 
 rule link_fasta:
     input:

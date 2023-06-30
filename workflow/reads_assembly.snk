@@ -1,3 +1,9 @@
+from scripts import utilities
+
+wildcard_constraints:
+    assembly="operams|flye_nanopore_raw|flye_nanopore_medaka|canu_nanopore|megahit"
+
+
 rule uncompress_long:
     input:
         'reads/{group}/nanopore/merged.fastq.gz'
@@ -20,8 +26,10 @@ rule operams:
         config['softparams']['conda']['operams']
     log:
         'logs/{group}/assembly.operams.log'
+    benchmark:
+        'benchmarks/{group}/operams.txt'
     threads:
-        16
+        utilities.get_generic_threads
     shell:
         '(perl {input.exe} --short-read1 {input.sr1} --short-read2 {input.sr2} --long-read {input.lr} --out-dir {output.outdir} --polishing --num-processors {threads})  2> {log}'
 
@@ -46,7 +54,7 @@ rule link_operams:
 
 # Maybe I should change this to something into the configuration file
 # But it seems this only helps for an estimation of used memory and not
-# directly impacting assembly output
+# directly impact assembly output
 ESTIMATED_GENOMESIZE = '5m'
 
 rule flye_nanopore:
@@ -59,12 +67,14 @@ rule flye_nanopore:
         config['softparams']['conda']['flye']
     log:    
         'logs/{group}/assembly.flye_nanopore.log'
+    benchmark:
+        'benchmarks/{group}/flye_nanopore.txt'
     threads:
-        48
+        utilities.get_generic_threads
     params:
         mgsize = ESTIMATED_GENOMESIZE
     shell:
-        'flye --meta --min-overlap 3000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --nano-raw {input} &> {log}'
+        'flye --meta --keep-haplotypes --min-overlap 1000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --nano-raw {input} &> {log}'
 
 rule link_flye_nanopore:
     input:
@@ -79,8 +89,10 @@ rule flye_nanopore_medaka:
         rules.flye_nanopore.output.fasta
     output:
         'assembly/flye/{group}/medaka/assembly.fasta'
+    benchmark:
+        'benchmarks/{group}/flye_medaka.txt'
     shell:
-        ''
+        'tobedone'
 
 rule link_flye_nanopore_medaka:
     input:
@@ -102,8 +114,10 @@ rule canu_nanopore:
         config['softparams']['conda']['canu']
     log:    
         'logs/{group}/assembly.canu_nanopore.log'
+    benchmark:
+        'benchmarks/{group}/canu_nanopore.txt'
     threads:
-        16
+        utilities.get_generic_threads
     params:
         mgsize = lambda wc: config[wc.group]['assembly']['canu_mg_size']
     shell:
@@ -127,8 +141,10 @@ rule canu_pacbio:
         config['softparams']['conda']['canu']
     log:    
         'logs/{group}/assembly.canu_pacbio.{rtype}.log'
+    benchmark:
+        'benchmarks/{group}/canu_pacbio.{rtype}.txt'
     threads:
-        16
+        utilities.get_generic_threads
     params:
         mgsize = lambda wc: config[wc.group]['assembly']['canu_mg_size']
     shell:
@@ -157,9 +173,11 @@ rule megahit_paired:
     conda:
         config['softparams']['conda']['megahit']
     threads:
-        16
+        utilities.get_generic_threads
     log:
         'logs/{group}/assembly.megahit_paired.log'
+    benchmark:
+        'benchmarks/{group}/megahit_paired.txt'
     shell:
         'rm -r {output.outdir} && megahit -1 {input.r1} -2 {input.r2} -o {output.outdir} -t {threads} && rm -rf {params.interm} 2> {log}'
 
@@ -188,7 +206,7 @@ rule hifiasm_meta:
     benchmark:
         'benchmarks/{group}.hifiasm_meta.{model}.txt'
     threads: 
-        32
+        utilities.get_generic_threads
     log:
         'logs/{group}/hifiasm_meta.{model}.log'
     shell:
@@ -197,17 +215,17 @@ rule hifiasm_meta:
 # https://www.biostars.org/p/169516/
 rule hifiasm_meta_gfa_to_fa:
     input:
-        'assembly/hifiasm_meta/{group}/{model}/asm.{basename}.gfa'
+        'assembly/hifiasm_meta/{group}/{model}/asm.{assembly}.gfa'
     output:
-        'assembly/hifiasm_meta/{group}/{model}/asm.{basename}.fa'
+        'assembly/hifiasm_meta/{group}/{model}/asm.{assembly}.fa'
     shell:
         'awk \'/^S/{{print ">"$2"\\n"$3}}\' {input} | fold > {output}'
 
 rule hifiasm_meta_add_suffix:
     input:
-        'assembly/hifiasm_meta/{group}/{model}/asm.{basename}.fa'
+        'assembly/hifiasm_meta/{group}/{model}/asm.{assembly}.fa'
     output:
-	'assembly/hifiasm_meta/{group}/{model}/asm.{basename}_suffix.fa'
+	'assembly/hifiasm_meta/{group}/{model}/asm.{assembly}_suffix.fa'
     params:
         suffix = lambda wc: wc.basename
     script:
@@ -224,9 +242,9 @@ rule hifiasm_meta_merge_ctg:
 
 rule link_hifiasm_meta:
     input:
-        'assembly/hifiasm_meta/{group}/{model}/asm.{basename}.fa'
+        'assembly/hifiasm_meta/{group}/{model}/asm.{assembly}.fa'
     output:
-        'assembly/done/{group}/hifiasm_meta.{model}.{basename}.fa'
+        'assembly/done/{group}/hifiasm_meta.{model}.{assembly}.fa'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
@@ -243,9 +261,11 @@ rule unicycler_short:
     params:
         prefix = 'assembly/unicycler/{group}/short'
     threads:
-        32
+        utilities.get_generic_threads
     log:
         'logs/{group}/assembly.unicycler_short.log'
+    benchmark:
+        'benchmarks/{group}/unicycler_short.txt'
     shell:
         'unicycler --short1 {input.r1} --short2 {input.r2} --threads {threads} --out {params.prefix} > {log}'
 
@@ -259,9 +279,11 @@ rule unicycler_long:
     params:
         prefix = 'assembly/unicycler/{group}/long'
     threads:
-        32
+        utilities.get_generic_threads
     log:
         'logs/{group}/assembly.unicycler_long.log'
+    benchmark:
+        'benchmarks/{group}/unicycler_long.txt'
     shell:
         'unicycler --long {input.lo} --threads {threads} --out {params.prefix} > {log}'
 
@@ -277,9 +299,11 @@ rule unicycler_hybrid:
     params:
         prefix = 'assembly/unicycler/{group}/hybrid'
     threads:
-        32
+        utilities.get_generic_threads
     log:
         'logs/{group}/assembly.unicycler_hybrid.log'
+    benchmark:
+        'benchmarks/{group}/unicycler_hybrid.txt'
     shell:
         'unicycler --short1 {input.r1} --short2 {input.r2} --long {input.lo} --threads {threads} --out {params.prefix} > {log}'
 
@@ -295,16 +319,18 @@ rule link_unicycler:
 
 rule link_to_mapping_process:
     input:
-        'assembly/done/{group}/{basename}.fa'
+        'assembly/done/{group}/{assembly}.fa'
     output:
-        'references/used/{group}/refmap/{basename}.fa'
+        'references/used/{group}/refmap/{assembly}.fa'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
+# If issue, make sure the assembly is in the allowed wildcards
+
 rule link_to_haplotype_stats:
     input:
-        'assembly/done/{group}/{basename}.fa'
+        'assembly/done/{group}/{assembly}.fa'
     output:
-        temp('temp/assemblies/{group}/none.{basename}.fa')
+        temp('temp/assemblies/{group}/{assembly}.fa')
     shell:
         'ln -s $(pwd)/{input} {output}'

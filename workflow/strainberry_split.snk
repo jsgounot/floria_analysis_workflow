@@ -1,0 +1,60 @@
+from scripts import utilities
+
+rule strainberry:
+    input:
+        fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
+        fai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa.fai',
+        bam   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam',
+        bai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam.bai',
+        exe   = config['softparams']['soft']['strainberry']
+    output:
+        directory = directory('phasing/strainberry/split/{group}/{krtype}/{tid}'),
+        scaffold  = protected('phasing/strainberry/split/{group}/{krtype}/{tid}/assembly.scaffolds.fa')
+    params:
+        add = lambda wc: '--nanopore ' if wc.krtype == 'nanopore' else ''
+    conda:
+        config['softparams']['conda']['strainberry']
+    log:
+        'logs/{group}/strainberry.split.{krtype}.{tid}.log'
+    benchmark:
+        'benchmarks/{group}/strainberry.split.{krtype}.{tid}.txt'
+    threads:
+        utilities.get_generic_threads_split
+    shell:
+        '{input.exe} -r {input.fasta} -b {input.bam} -o {output.directory} -c {threads} {params.add} 2> {log}'
+
+rule strainberry_compress_intermediate:
+    # This rule is used to compress and remove all the small but numerous files
+    # for clusters with file numbers limits
+    input:
+        rules.strainberry.output['scaffold']
+    output:
+        'phasing/strainberry/split/{group}/{krtype}/{tid}/strainberry_ns.tar.gz'
+    params:
+        path = 'phasing/strainberry/split/{group}/{krtype}/{tid}/strainberry_n*'
+    shell:
+        'tar -czf {output} {params.path} --remove-files'
+
+rule strainberry_rename_compress_fasta:
+    input:
+        compress_tmp = rules.strainberry_compress_intermediate.output,
+        scaffolds = rules.strainberry.output['scaffold']
+    output:
+        'phasing/strainberry/split/{group}/{krtype}/{tid}/assembly.scaffolds.fa.gz'
+    script:
+        'scripts/strainberry_split_rename_compress.py'
+
+def get_assemblies(wc):
+    with checkpoints.kr_split_list_contigs.get(** wc).output[0].open() as f:
+        tids = [line.strip() for line in f]
+
+    return [f'phasing/strainberry/split/{wc.group}/{wc.krtype}/{tid}/assembly.scaffolds.fa.gz'
+        for tid in tids]
+
+rule uncompress:
+    input:
+        get_assemblies
+    output: 
+        temp('temp/assemblies/{group}/kraken_ref.{krtype}.strainberry.fa')
+    shell:
+        'zcat {input} > {output}'

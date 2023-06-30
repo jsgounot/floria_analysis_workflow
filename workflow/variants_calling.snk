@@ -16,10 +16,10 @@ rule lofreq:
 
 rule longshot:
     input:
-        fasta   = 'references/used/{group}/refmap/{refori}.fa',
-        fai     = 'references/used/{group}/refmap/{refori}.fa.fai',
-        aln     = 'mapping/{group}/{refori}.{readtype}.bam',
-        aln_bai = 'mapping/{group}/{refori}.{readtype}.bam.bai'
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        aln   = 'mapping/{group}/{refori}.{readtype}.bam',
+        bai   = 'mapping/{group}/{refori}.{readtype}.bam.bai'
     output:
         'vcalling/{group}/{refori}.{readtype}.longshot.vcf'
     conda:
@@ -33,10 +33,10 @@ rule longshot:
 
 rule binomial_custom:
     input:
-        fasta   = 'references/used/{group}/refmap/{refori}.fa',
-        fai     = 'references/used/{group}/refmap/{refori}.fa.fai',
-        aln     = 'mapping/{group}/{refori}.{readtype}.bam',
-        aln_bai = 'mapping/{group}/{refori}.{readtype}.bam.bai'
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        aln   = 'mapping/{group}/{refori}.{readtype}.bam',
+        bai   = 'mapping/{group}/{refori}.{readtype}.bam.bai'
     output:
         'vcalling/{group}/{refori}.{readtype}.binocustom.vcf'
     conda:
@@ -46,4 +46,104 @@ rule binomial_custom:
     benchmark:
         'benchmarks/{group}/vcalling.{refori}.{readtype}.binocustom.txt'
     script:
-        'scripts/vcalling.binocustom.py'
+        'scripts/vcalling_binocustom.py'
+
+rule vcaller_gzip:
+    input:
+        'vcalling/{group}/{refori}.{readtype}.{vcaller}.vcf'
+    output:
+        'vcalling/{group}/{refori}.{readtype}.{vcaller}.vcf.gz'
+    shell:
+        'gzip {input}'
+
+rule floria_add_header:
+    input:
+        rules.vcaller_gzip.output[0]
+    output:
+        'vcalling/{group}/{refori}.{readtype}.{vcaller}.floria_vcf_header'
+    script:
+        'scripts/floria_vcf_header.py'
+
+# ----------------------------------------------------------------
+# Pre-split mapping
+
+use rule lofreq as lofreq_presplit with:
+    input:
+        fasta = 'kraken/{group}/ref.{krtype}.fa',
+        fai   = 'kraken/{group}/ref.{krtype}.fa.fai',
+        aln   = 'kraken/{group}/{krtype}.filtered.bam',
+    output:
+        'vcalling/{group}/presplit/{krtype}.lofreq.vcf'
+    conda:
+        config['softparams']['conda']['lofreq']
+    log:
+        'logs/{group}/presplit/vcalling.{krtype}.lofreq.log'
+    benchmark:
+        'benchmarks/{group}/presplit/vcalling.{krtype}.lofreq.txt'
+
+use rule longshot as longshot_presplit with:
+    input:
+        fasta = 'kraken/{group}/ref.{krtype}.fa',
+        fai   = 'kraken/{group}/ref.{krtype}.fa.fai',
+        aln   = 'kraken/{group}/{krtype}.filtered.bam',
+        bai   = 'kraken/{group}/{krtype}.filtered.bam.bai'
+    output:
+        'vcalling/{group}/presplit/{krtype}.longshot.vcf'
+    log:
+        'logs/{group}/presplit/vcalling.{krtype}.longshot.log'
+    benchmark:
+        'benchmarks/{group}/presplit/vcalling.{krtype}.longshot.txt'
+
+use rule vcaller_gzip as vcaller_gzip_presplit with:
+    input:
+        'vcalling/{group}/presplit/{krtype}.{vcaller}.vcf'
+    output:
+        'vcalling/{group}/presplit/{krtype}.{vcaller}.vcf.gz'
+
+use rule floria_add_header as floria_add_header_presplit with:
+    input:
+        rules.vcaller_gzip_presplit.output[0]
+    output:
+        'vcalling/{group}/presplit/{krtype}.{vcaller}.floria_vcf_header'
+
+# ----------------------------------------------------------------
+# Split mapping
+
+use rule lofreq as lofreq_split with:
+    input:
+        fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
+        fai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa.fai',
+        aln   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam',
+    output:
+        'vcalling/{group}/split/{tid}.{krtype}.lofreq.vcf'
+    conda:
+        config['softparams']['conda']['lofreq']
+    log:
+        'logs/{group}/split/vcalling.{tid}.{krtype}.lofreq.log'
+    benchmark:
+        'benchmarks/{group}/split/vcalling.{tid}.{krtype}.lofreq.txt'
+
+use rule longshot as longshot_split with:
+    input:
+        fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
+        fai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa.fai',
+        aln   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam',
+        bai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam.bai'
+    output:
+        'vcalling/{group}/split/{tid}.{krtype}.longshot.vcf'
+    log:
+        'logs/{group}/split/vcalling.{tid}.{krtype}.longshot.log'
+    benchmark:
+        'benchmarks/{group}/split/vcalling.{tid}.{krtype}.longshot.txt'
+
+use rule vcaller_gzip as vcaller_gzip_split with:
+    input:
+        'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.vcf'
+    output:
+        'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.vcf.gz'
+
+use rule floria_add_header as floria_add_header_split with:
+    input:
+        rules.vcaller_gzip_split.output[0]
+    output:
+        'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header'
