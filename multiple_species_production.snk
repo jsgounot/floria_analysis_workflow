@@ -33,6 +33,7 @@ with open(fname) as f:
 rule all:
     input:      
         'logs/configuration.json',
+        expand('phasing/floria/presplit/{group}/nanopore/longshot/ploidy.tsv.gz', group=GROUPS),
         expand('phasing/floria/presplit/{group}/nanopore/longshot/assembly.wtdbg2.long_reads.nano.fa.gz',
             group=GROUPS)
 
