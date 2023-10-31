@@ -1,6 +1,6 @@
-## Floria analysis workflows
+## Floria pipelines
 
-This repository contains all workflow used to run and compare phasing solutions, including regular assembly software and split phasing approaches.
+This repository contains all workflow used to run and compare phasing solutions, including regular assembly software, split phasing and real reads approaches.
 
 ### Conda environments and software paths
 
@@ -30,9 +30,9 @@ You need to install some software locally: [strainberry](https://github.com/rvic
 
 For Strainberry, I recommend installing my small fork version of the software [here](https://github.com/jsgounot/strainberry) that is more suitable for snakemake pipeline (see details in [this commit](https://github.com/rvicedomini/strainberry/commit/153a84cedb2ed07590af5a6ba0e01899389de1eb)).
 
-### Repository description
+### Pipelines description
 
-This repository contains multiple main workflows, each of them being a snakemake file `.snk` in the root folder and composed of multiple subworkflow you can find in the `workflow` folder. 
+This repository contains multiple main pipelines (or workflows), each of them being a snakemake file `.snk` in the root folder and composed of multiple subworkflow you can find in the `workflow` folder. 
 
 #### Single species synthetic
 
@@ -42,15 +42,15 @@ Produce synthetic reads of multiple strains **from the same species** to produce
 
 Subsample real reads of multiple strains **from the same species** to produce phasing. Excluding this initial part, the pipeline is similar to *single species synthetic* one.
 
-#### Multiple species synthetic
+#### Multiple species / Metagenome synthetic
 
 Produce synthetic reads **from multiple strains and species to simulate a metagenome** without knowledge of existing species. For reference-based approaches such as Floria or Strainberry, this means we need to first identify the potential species within the metagenome. This is done using a kraken-based approach.
 
 #### Multiple species spike-in
 
-A slightly different and minor approach of the *multiple species synthetic* pipeline where simulated reads are spike-in within a real metagenomic reads dataset. Mostly used to assess the ability of the split-kraken part to correctly identify species and phasing algorithm to reconstruct strains within such samples.
+A slightly different and minor approach of the *multiple species synthetic* pipeline where simulated reads are spike-in within a real metagenomic reads dataset. Mainly used to assess the ability of the split-kraken part to correctly identify species and phasing algorithm to reconstruct strains within such samples.
 
-#### Multiple species production
+#### Multiple species production (Real reads)
 
 Similar to *multiple species synthetic* but for real metagenomic samples, without the synthetic reads part. This pipeline can be used for your sample but most likely will require tuning some parameters first. 
 
@@ -68,10 +68,10 @@ This will run the pipeline with multiple strains from *E. coli* and *K. pneumoni
 
 #### Reference genomes
 
-You can either provide a local path to a reference genome or download the reference on NCBI, using following keyword in the configuration file:
+You can either provide a local path to a reference genome or download the reference on NCBI, using the following keywords in the configuration file:
 
 * <u>refpath</u>: a path to a local file.
-* <u>ncbiasbly</u>: a NCBI assembly identifier. Note that one assembly can contains multiple sequences (contigs, plasmids) which will be concatenated in the process.
+* <u>ncbiasbly</u>: a NCBI assembly identifier. Note that one assembly can contain multiple sequences (contigs, plasmids) which will be concatenated in the process.
 * <u>ncbinuc</u>: A single NCBI identifier like a RefSeq identifier. Ideal if you just want one contig.
 
 See the `configs/single_species_synthetic_test.json` for an example. Snakemake option `--resources ncbi_load=1` is a safeguard to limit the number of NCBI call to 1 and <u>should not be removed</u> if you download NCBI genomes.
@@ -82,9 +82,9 @@ Illumina reads are automatically simulated with [ART](https://github.com/scchess
 
 ### Path name presets and combinations
 
-Snakemake is fundamently relying on path name and [wildcards](https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#wildcards) to define how to produce an output file. Since a phased assemblies can result from multiple chained operations, they must be reflected within the final path.  
+Snakemake is fundamentally relying on path name and [wildcards](https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#wildcards) to define how to produce an output file. Since a phased assembly can result from multiple chained operations, they must be reflected within the final path.  
 
-The path base of an output file is `stats/assemblies/{group}/{basename}/mummer/circos/done.empty` where `group` refers to one of the main group in your configuration file and `basename` encodes how to make the phasing. A very simple `basename` can be any assembler or reference-free phasing software such as `megahit` or `strainxpress.regular` (regular mode for StrainXPress). 
+The path base of an output file is `stats/assemblies/{group}/{basename}/mummer/circos/done.empty` where `group` refers to one of the main groups in your configuration file and `basename` encodes how to make the phasing. A very simple `basename` can be any assembler or reference-free phasing software such as `megahit` or `strainxpress.regular` (regular mode for StrainXPress). 
 
 For reference based approaches, `basename` *can* be composed of multiple fields based on this order: `{assembling}.{ass_reads}.{vcalling}.{phaser}.{phaser_mode}.{subassembler}.{subassembler_reads}.{subassembler_preset}`. 
 
@@ -94,18 +94,18 @@ For reference based approaches, `basename` *can* be composed of multiple fields 
 
 * `inpref`: For *single species* approach, will take the reference genome indicated in the configuration file.
 * `{assembler_name}`: For *single species* approach, will take the assembly generated by `{assembler_name}`
-* `kraken_ref`: For *multiple species* approach, will take reference genome and bam file generated using the kraken-mapping approach with each species processed individually. Requiere `{ass_reads}` that indicates which reads will be used for the kraken analysis.
-* `kraken_presplit`: Similar to kraken_ref, but all species are not splitted but processed in the same batch.
+* `kraken_ref`: For *multiple species* approach, will take a reference genome and bam file generated using the kraken-mapping approach with each species processed individually. Requiere `{ass_reads}` that indicates which reads will be used for the kraken analysis.
+* `kraken_presplit`: Similar to kraken_ref, but all species are not split but processed in the same batch.
 
 ##### Vcalling
 
-Informs which variant caller to use, can be either `longshot`, `lofreq` or a custom handmade variant caller called `binomial_custom`. We do not recommend using the latest as it oversimplify the variant calling process. `longshot` should be the default choice, `lofreq` does ***not*** work well with nanopore long reads.
+Informs which variant caller to use, can be either `longshot`, `lofreq` or a custom handmade variant caller called `binomial_custom`. We do not recommend using the latest as it oversimplifies the variant calling process. `longshot` should be the default choice, `lofreq` does ***not*** work well with nanopore long reads.
 
 ##### Phaser and phaser mode
 
 Can be either `floria` or `strainberry` for now.
 
-Phaser mode is only used for *single species* approach with floria and defines wether you want to use `illumina`, `nanopore`, `pacbio` or an `hybrid` of illumina and nanopore. Note that for `pacbio` you also need to define the preset for read simulation.
+Phaser mode is only used for *single species* approach with floria and defines whether you want to use `illumina`, `nanopore`, `pacbio` or an `hybrid` of illumina and nanopore. Note that for `pacbio` you also need to define the preset for read simulation.
 
 ##### Sub assembler
 
