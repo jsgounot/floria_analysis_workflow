@@ -2,33 +2,33 @@ import glob, os, json
 from scripts import utilities
 
 wildcard_constraints:
-    vcaller="longshot|lofreq|binocustom",
+    vcaller="longshot|lofreq|binocustom|freebayes",
     rtype="long_reads|short_reads",
-
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Glopp
 
 rule floria:
     input:
-        exe   = config['softparams']['soft']['floria'],
         fasta = 'kraken/{group}/ref.{krtype}.fa',
         fai   = 'kraken/{group}/ref.{krtype}.fa.fai',
-        bam   = 'kraken/{group}/{krtype}.filtered.bam',
-        bai   = 'kraken/{group}/{krtype}.filtered.bam.bai',
+        bam   = 'kraken/{group}/main/{krtype}.bam',
+        bai   = 'kraken/{group}/main/{krtype}.bam.bai',
         vcf   = 'vcalling/{group}/presplit/{krtype}.{vcaller}.floria_vcf_header'
     output:
         directory('phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir/')
+    params:
+        exe = utilities.get_softpath(config, 'floria')
     conda:
         config['softparams']['conda']['floria']
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
         'logs/{group}/floria.presplit.{krtype}.{vcaller}.log'
     benchmark:
         'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.txt'
     shell:
-        '{input.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
+        '{params.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
             --output-reads --gzip-reads > {log}'
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
@@ -58,7 +58,7 @@ rule ploidy_table:
         archive = rules.compress.output[0],
         fasta = 'kraken/{group}/ref.{krtype}.fa',
         kraken = 'kraken/{group}/kraken.{krtype}.report.cov.tsv',
-        depth = 'kraken/{group}/{krtype}.filtered.bam.cov.tsv.gz',
+        depth = 'kraken/{group}/main/{krtype}.bam.cov.tsv.gz',
         vcf = 'vcalling/{group}/presplit/{krtype}.{vcaller}.floria_vcf_header'
     output:
         'phasing/floria/presplit/{group}/{krtype}/{vcaller}/ploidy.tsv.gz'
@@ -90,7 +90,7 @@ rule wtdbg2:
     output:
         'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.wtdbg2.{rtype}.{preset}.fa.gz'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     params:
         preset = lambda wc: WTDBG2PRESETS[wc.preset]
     conda:
@@ -109,7 +109,9 @@ rule flye:
     output:
         'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.flye.{rtype}.none.fa.gz'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
+    params:
+        kmersize = 16
     conda:
         config['softparams']['conda']['flye']
     log:
@@ -126,7 +128,7 @@ rule abysspe:
     output:
         'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.abysspe.{rtype}.none.fa.gz'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     conda:
         config['softparams']['conda']['abyss']
     log:
@@ -143,7 +145,7 @@ rule megahit:
     output:
         'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.megahit.{rtype}.none.fa.gz'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     conda:
         config['softparams']['conda']['megahit']
     log:

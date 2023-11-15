@@ -3,34 +3,40 @@ from scripts import utilities
 
 wildcard_constraints:
     vcaller="longshot|lofreq|binocustom",
-    rtype="long_reads|short_reads",
-    refori="(?!kraken_ref)"
-
+    rtype="long_reads|short_reads"
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Glopp
 
+FMODES = {
+    'fp0': '-l 100 -d 0.0001',
+    'fp1': '-l 100 -d 0.0005 -e 0.01',
+    'fp2': '-l 15000 -e 0.04 -d 0.001 -n 10'
+}
+
 rule floria:
     input:
-        exe   = config['softparams']['soft']['floria'],
         fasta = 'references/used/{group}/refmap/{refori}.fa',
         fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
-        bam   = 'mapping/{group}/{refori}.{rtype}.bam',
-        bai   = 'mapping/{group}/{refori}.{rtype}.bam.bai',
-        vcf   = 'vcalling/{group}/{refori}.{rtype}.{vcaller}.floria_vcf_header'
+        bam   = 'mapping/{group}/{refori}.{gmode}.bam',
+        bai   = 'mapping/{group}/{refori}.{gmode}.bam.bai',
+        vcf   = 'vcalling/{group}/single/{refori}.{gmode}.{vcaller}.floria_vcf_header'
     output:
-        directory('phasing/floria/single/{group}/{refori}/{vcaller}/{rtype}/wdir/')
+        directory('phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir/{fpreset}')
+    params:
+        exe = utilities.get_softpath(config, 'floria'),
+        extra_params = lambda wc: FMODES[wc.fpreset] if wc.fpreset != 'none' else ''
     conda:
         config['softparams']['conda']['floria']
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
-        'logs/{group}/floria.single.{refori}.{vcaller}.{rtype}.log'
+        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.log'
     benchmark:
-        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{rtype}.txt'
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.txt'
     shell:
-        '{input.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
-            --output-reads --gzip-reads > {log}'
+        '{params.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
+            --output-reads --gzip-reads {params.extra_params} > {log}'
 
 rule floria_hybrid:
     input:
@@ -39,71 +45,46 @@ rule floria_hybrid:
         bam   = 'mapping/{group}/{refori}.nanopore.bam',
         bai   = 'mapping/{group}/{refori}.nanopore.bam.bai',
         short = 'mapping/{group}/{refori}.illumina.bam',
-        vcf   = 'vcalling/{group}/{refori}.illumina.{vcaller}.floria_vcf_header',
-        exe   = config['softparams']['soft']['floria']
+        vcf   = 'vcalling/{group}/single/{refori}.illumina.{vcaller}.floria_vcf_header'
     output:
-        directory('phasing/floria/single/{group}/{refori}/{vcaller}/hybrid/wdir')
+        directory('phasing/floria/single/{group}/{refori}/{vcaller}/hybrid/wdir/{fpreset}')
+    params:
+        exe = utilities.get_softpath(config, 'floria'),
+        extra_params = lambda wc: FMODES[wc.fpreset] if wc.fpreset != 'none' else ''
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
-        'logs/{group}/floria.single.{refori}.{vcaller}.hybrid.log'
+        'logs/{group}/floria.single.{refori}.{vcaller}.hybrid.{fpreset}.log'
     benchmark:
-        'benchmarks/{group}/floria.single.{refori}.{vcaller}.hybrid.txt'
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.hybrid.{fpreset}.txt'
     shell:
-        '{input.exe} -b {input.bam} -v {input.vcf} -o {output.outdir} -t {threads} -r {input.fasta} -H {input.short} \
-            --reassign-short --output-reads --gzip-reads > {log}'
+        '{params.exe} -b {input.bam} -v {input.vcf} -o {output.outdir} -t {threads} -r {input.fasta} -H {input.short} \
+            --reassign-short --output-reads --gzip-reads {params.extra_params} > {log}'
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Post-processing
 # This part is made to compress all directory for both space and files number reduction
 
-rule compress_floria_subdir:
+rule mv_compress:
+    # We need to mv first to avoid snakemake to get confused with timestamps
     input:
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir/'
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir/{fpreset}'
     output:
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{dirname}.tar.gz'
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir.{fpreset}.tar.gz'
     params:
-        path = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir/*/{dirname}'
-    shell:
-        'tar -czf {output} {params.path} --remove-files'
-
-rule prep_floria_outputs:
-    input:
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.vartig_info.tar.gz',
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.local_parts.tar.gz',
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.long_reads.tar.gz',
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.short_reads.tar.gz',
-    output:
-        touch('phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/prep.done')
+        dname = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/done/{fpreset}'
     priority:
         1
+    shell:
+        'mkdir -p {params.dname} && mv {input} {params.dname} && tar czf {output} {params.dname} --remove-files'
 
-def get_reads(wc):
-    mtype = wc.gmode.split('_')[0]
-    if mtype == 'illumina':
-        return [
-            f'reads/{wc.group}/illumina/merged/R1.fastq.gz',
-            f'reads/{wc.group}/illumina/merged/R2.fastq.gz'
-        ]
-
-    elif mtype == 'pacbio':
-        model = wc.gmode.split('_')[1]
-        return [f'reads/{wc.group}/pacbio/merged_{model}.fastq.gz']
-
-    elif mtype == 'nanopore' or mtype == 'hybrid':
-        return [f'reads/{wc.group}/nanopore/merged.fastq.gz']
-    
-    else:
-        raise Exception(f'mtype not found: {mtype}')
-
-rule get_reads_info:
+rule uncompress:
     input:
-        res = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.tar.gz',
-        reads = get_reads
+        rules.mv_compress.output[0]
     output:
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.readsinfo.gz'
-    script:
-        'scripts/floria_read_stats.py'
+        temp(touch('phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{fpreset}.{rtype}.{assembler}.uncompressed'))
+    shell:
+        'tar xzf {input} --transform "s/fastq.gz/{wildcards.assembler}.fastq.gz/" --wildcards "*/{wildcards.rtype}/*.fastq.gz"'
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Assembly
@@ -123,56 +104,82 @@ WTDBG2PRESETS = {
     'nano': '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
 }
 
-rule uncompress:
-    input:
-        #archives = rules.prep_floria_outputs.output,
-        rtype_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.tar.gz'
-    output:
-        temp(touch('phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.{assembler}.uncompressed'))
-    shell:
-        'tar xzvf {input.rtype_ar} --transform "s/fastq.gz/{wildcards.assembler}.fastq.gz/"'
-
 rule wtdbg2:
     input:
-        reads_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.tar.gz',
-        flag = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.wtdbg2.uncompressed'
+        reads_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir.{fpreset}.tar.gz',
+        flag = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{fpreset}.{rtype}.wtdbg2.uncompressed'
     output:
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.wtdbg2.{rtype}.{preset}.fa.gz'
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.{fpreset}.wtdbg2.{rtype}.{preset}.fa.gz'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     params:
         preset = lambda wc: WTDBG2PRESETS[wc.preset]
     conda:
         config['softparams']['conda']['wtdbg2']
     log:
-        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{rtype}.{preset}.wtdbg2.log'
+        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.{rtype}.{preset}.wtdbg2.log'
     benchmark:
-        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{rtype}.wtdbg2.{preset}.txt'
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.{rtype}.wtdbg2.{preset}.txt'
     script:
         'scripts/floria_run_wtdbg2.py'
 
+rule flye:
+    input:
+        reads_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir.{fpreset}.tar.gz',
+        flag = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{fpreset}.{rtype}.flye.uncompressed'
+    output:
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.{fpreset}.flye.{rtype}.none.fa.gz'
+    threads:
+        config['miscs']['GENERIC_THREADS']
+    conda:
+        config['softparams']['conda']['flye']
+    params:
+        kmersize = 16
+    log:
+        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.{rtype}.none.flye.log'
+    benchmark:
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.{rtype}.flye.none.txt'
+    script:
+        'scripts/floria_run_flye.py'
+
 rule abysspe:
     input:
-        reads_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.tar.gz',
-        flag = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{rtype}.abysspe.uncompressed'
+        reads_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir.{fpreset}.tar.gz',
+        flag = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{fpreset}.{rtype}.abysspe.uncompressed'
     output:
-        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.abysspe.{rtype}.none.fa.gz'
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.{fpreset}.abysspe.{rtype}.none.fa.gz'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     conda:
         config['softparams']['conda']['abyss']
     log:
-        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{rtype}.abysspe.log'
+        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.{rtype}.abysspe.log'
     benchmark:
-        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{rtype}.abysspe.txt'
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.{rtype}.abysspe.txt'
     script:
         'scripts/floria_run_abysspe.py'
 
+rule megahit:
+    input:
+        reads_ar = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir.{fpreset}.tar.gz',
+        flag = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/floria.{fpreset}.{rtype}.megahit.uncompressed'
+    output:
+        'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.{fpreset}.megahit.{rtype}.none.fa.gz'
+    threads:
+        config['miscs']['GENERIC_THREADS']
+    conda:
+        config['softparams']['conda']['megahit']
+    log:
+        'logs/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.{rtype}.megahit.log'
+    benchmark:
+        'benchmarks/{group}/floria.single.{refori}.{vcaller}.{gmode}.{fpreset}.{rtype}.megahit.txt'
+    script:
+        'scripts/floria_run_megahit.py'
+
 rule get_assembly:
     input:
-        archives = rules.prep_floria_outputs.output,
-        fasta = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.{assembler}.{rtype}.{preset}.fa.gz'
+        fasta = 'phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/assembly.{fpreset}.{assembler}.{rtype}.{preset}.fa.gz',
     output:
-        temp('temp/assemblies/{group}/{refori}.{vcaller}.floria.{gmode}.{assembler}.{rtype}.{preset}.fa')
+        temp('temp/assemblies/{group}/{refori}.{vcaller}.floria.{gmode}.{fpreset}.{assembler}.{rtype}.{preset}.fa')
     shell:
         'zcat {input.fasta} > {output}'

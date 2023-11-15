@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2023-05-23 13:36:40
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-06-06 14:16:05
+# @Last Modified time: 2023-07-18 17:09:46
 
 import os
 from collections import defaultdict
@@ -13,7 +13,7 @@ fname = snakemake.input['lc']
 
 with open(fname) as f:
 	for line in f:
-		line = line.strip()
+		line = line.strip().split(0)[1:]
 		print (line)
 		taxid = 'tid' + line.split('_')[-1]
 		dic[taxid].add(line)

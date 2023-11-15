@@ -1,0 +1,8 @@
+name: ncbitools
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - sra-tools
+  - entrez-direct
+  - nanostat

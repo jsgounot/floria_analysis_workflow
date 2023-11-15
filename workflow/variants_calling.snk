@@ -1,10 +1,28 @@
+rule clean_fasta:
+    input:
+        'references/used/{group}/refmap/{refori}.fa'
+    output:
+        'references/used/{group}/refmap/{refori}.clean.fa'
+    script:
+        'scripts/vcalling_cleanfa.py'
+
+rule samtools_index:
+    input:
+        'references/used/{group}/refmap/{refori}.clean.fa'
+    output:
+        'references/used/{group}/refmap/{refori}.clean.fa.fai'
+    conda:
+        config['softparams']['conda']['minimap2']
+    shell:
+        'samtools faidx {input}'
+
 rule lofreq:
     input:
         fasta = 'references/used/{group}/refmap/{refori}.fa',
         fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
         aln   = 'mapping/{group}/{refori}.{readtype}.bam'
     output:
-        'vcalling/{group}/{refori}.{readtype}.lofreq.vcf'
+        'vcalling/{group}/single/{refori}.{readtype}.lofreq.vcf'
     conda:
         config['softparams']['conda']['lofreq']
     log:
@@ -21,7 +39,7 @@ rule longshot:
         aln   = 'mapping/{group}/{refori}.{readtype}.bam',
         bai   = 'mapping/{group}/{refori}.{readtype}.bam.bai'
     output:
-        'vcalling/{group}/{refori}.{readtype}.longshot.vcf'
+        'vcalling/{group}/single/{refori}.{readtype}.longshot.vcf'
     conda:
         config['softparams']['conda']['longshot']
     log:
@@ -31,6 +49,23 @@ rule longshot:
     shell:
         'longshot --ref {input.fasta} --out {output} --bam {input.aln} -F -n 2> {log}'
 
+rule freebayes:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.clean.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.clean.fa.fai',
+        aln   = 'mapping/{group}/{refori}.{readtype}.bam',
+        bai   = 'mapping/{group}/{refori}.{readtype}.bam.bai'
+    output:
+        'vcalling/{group}/single/{refori}.{readtype}.freebayes.vcf'
+    conda:
+        config['softparams']['conda']['freebayes']
+    log:
+        'logs/{group}/vcalling.{refori}.{readtype}.freebayes.log'
+    benchmark:
+        'benchmarks/{group}/vcalling.{refori}.{readtype}.freebayes.txt'
+    shell:
+        'freebayes -f {input.fasta} --pooled-continuous -F 0.01 -C 1 --pooled-continuous {input.aln} > {output}'
+
 rule binomial_custom:
     input:
         fasta = 'references/used/{group}/refmap/{refori}.fa',
@@ -38,7 +73,7 @@ rule binomial_custom:
         aln   = 'mapping/{group}/{refori}.{readtype}.bam',
         bai   = 'mapping/{group}/{refori}.{readtype}.bam.bai'
     output:
-        'vcalling/{group}/{refori}.{readtype}.binocustom.vcf'
+        'vcalling/{group}/single/{refori}.{readtype}.binocustom.vcf'
     conda:
         config['softparams']['conda']['pysam']
     log:
@@ -50,9 +85,9 @@ rule binomial_custom:
 
 rule vcaller_gzip:
     input:
-        'vcalling/{group}/{refori}.{readtype}.{vcaller}.vcf'
+        'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.vcf'
     output:
-        'vcalling/{group}/{refori}.{readtype}.{vcaller}.vcf.gz'
+        'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.vcf.gz'
     shell:
         'gzip {input}'
 
@@ -60,18 +95,44 @@ rule floria_add_header:
     input:
         rules.vcaller_gzip.output[0]
     output:
-        'vcalling/{group}/{refori}.{readtype}.{vcaller}.floria_vcf_header'
+        temp('vcalling/{group}/single/{refori}.{readtype}.{vcaller}.floria_vcf_header')
     script:
         'scripts/floria_vcf_header.py'
 
+rule floria_add_header_bgzip:
+    input:
+        rules.floria_add_header.output[0]
+    output:
+        'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.floria_vcf_header.gz'
+    conda:
+        config['softparams']['conda']['pysam']
+    shell:
+        'bgzip --keep {input}'
+
+rule floria_add_header_tabix:
+    input:
+        rules.floria_add_header_bgzip.output[0]
+    output:
+        'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.floria_vcf_header.gz.tbi'
+    conda:
+        config['softparams']['conda']['pysam']
+    shell:
+        'tabix -p vcf {input}'
+
 # ----------------------------------------------------------------
 # Pre-split mapping
+
+use rule clean_fasta as clean_fasta_presplit with:
+    input:
+        'kraken/{group}/ref.{krtype}.fa'
+    output:
+        'kraken/{group}/ref.{krtype}.clean.fa'
 
 use rule lofreq as lofreq_presplit with:
     input:
         fasta = 'kraken/{group}/ref.{krtype}.fa',
         fai   = 'kraken/{group}/ref.{krtype}.fa.fai',
-        aln   = 'kraken/{group}/{krtype}.filtered.bam',
+        aln   = 'kraken/{group}/main/{krtype}.filtered.bam',
     output:
         'vcalling/{group}/presplit/{krtype}.lofreq.vcf'
     conda:
@@ -85,14 +146,27 @@ use rule longshot as longshot_presplit with:
     input:
         fasta = 'kraken/{group}/ref.{krtype}.fa',
         fai   = 'kraken/{group}/ref.{krtype}.fa.fai',
-        aln   = 'kraken/{group}/{krtype}.filtered.bam',
-        bai   = 'kraken/{group}/{krtype}.filtered.bam.bai'
+        aln   = 'kraken/{group}/main/{krtype}.bam',
+        bai   = 'kraken/{group}/main/{krtype}.bam.bai'
     output:
         'vcalling/{group}/presplit/{krtype}.longshot.vcf'
     log:
         'logs/{group}/presplit/vcalling.{krtype}.longshot.log'
     benchmark:
         'benchmarks/{group}/presplit/vcalling.{krtype}.longshot.txt'
+
+use rule freebayes as freebayes_presplit with:
+    input:
+        fasta = 'kraken/{group}/ref.{krtype}.clean.fa',
+        fai   = 'kraken/{group}/ref.{krtype}.clean.fa.fai',
+        aln   = 'kraken/{group}/main/{krtype}.bam',
+        bai   = 'kraken/{group}/main/{krtype}.bam.bai'
+    output:
+        'vcalling/{group}/presplit/{krtype}.freebayes.vcf'
+    log:
+        'logs/{group}/presplit/vcalling.{krtype}.freebayes.log'
+    benchmark:
+        'benchmarks/{group}/presplit/vcalling.{krtype}.freebayes.txt'
 
 use rule vcaller_gzip as vcaller_gzip_presplit with:
     input:
@@ -109,11 +183,23 @@ use rule floria_add_header as floria_add_header_presplit with:
 # ----------------------------------------------------------------
 # Split mapping
 
+use rule clean_fasta as clean_fasta_split with:
+    input:
+        'kraken/{group}/split/bamfa/{tid}.{krtype}.fa'
+    output:
+        'kraken/{group}/split/bamfa/{tid}.{krtype}.clean.fa'
+
+use rule samtools_index as samtools_index_split with:
+    input:
+        rules.clean_fasta_split.output[0]
+    output:
+        rules.clean_fasta_split.output[0] + '.fai'
+
 use rule lofreq as lofreq_split with:
     input:
         fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
         fai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa.fai',
-        aln   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam',
+        aln   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam',
     output:
         'vcalling/{group}/split/{tid}.{krtype}.lofreq.vcf'
     conda:
@@ -127,14 +213,27 @@ use rule longshot as longshot_split with:
     input:
         fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
         fai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa.fai',
-        aln   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam',
-        bai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam.bai'
+        aln   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam',
+        bai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam.bai'
     output:
         'vcalling/{group}/split/{tid}.{krtype}.longshot.vcf'
     log:
         'logs/{group}/split/vcalling.{tid}.{krtype}.longshot.log'
     benchmark:
         'benchmarks/{group}/split/vcalling.{tid}.{krtype}.longshot.txt'
+
+use rule freebayes as freebayes_split with:
+    input:
+        fasta = rules.clean_fasta_split.output[0],
+        fai   = rules.samtools_index_split.output[0],
+        aln   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam',
+        bai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam.bai'
+    output:
+        'vcalling/{group}/split/{tid}.{krtype}.freebayes.vcf'
+    log:
+        'logs/{group}/split/vcalling.{tid}.{krtype}.freebayes.log'
+    benchmark:
+        'benchmarks/{group}/split/vcalling.{tid}.{krtype}.freebayes.txt'
 
 use rule vcaller_gzip as vcaller_gzip_split with:
     input:
@@ -146,4 +245,16 @@ use rule floria_add_header as floria_add_header_split with:
     input:
         rules.vcaller_gzip_split.output[0]
     output:
-        'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header'
+        temp('vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header')
+
+use rule floria_add_header_bgzip as floria_add_header_bgzip_split with:
+    input:
+        rules.floria_add_header_split.output[0]
+    output:
+        'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header.gz'
+
+use rule floria_add_header_tabix as floria_add_header_tabix_split with:
+    input:
+        rules.floria_add_header_bgzip_split.output[0]
+    output:
+        'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header.gz.tbi'

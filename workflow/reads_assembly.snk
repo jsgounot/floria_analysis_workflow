@@ -3,7 +3,6 @@ from scripts import utilities
 wildcard_constraints:
     assembly="operams|flye_nanopore_raw|flye_nanopore_medaka|canu_nanopore|megahit"
 
-
 rule uncompress_long:
     input:
         'reads/{group}/nanopore/merged.fastq.gz'
@@ -16,12 +15,13 @@ rule operams:
     input:
         sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
         sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz',
-        lr = 'reads/{group}/nanopore/merged.fastq',
-        exe = config['softparams']['soft']['operams']
+        lr = 'reads/{group}/nanopore/merged.fastq'
     output:
         outdir = directory('assembly/operams/{group}'),
         interm = directory('assembly/operams/{group}/intermediate_files'),
         fasta = protected('assembly/operams/{group}/contigs.polished.fasta')
+    params:
+        exe = utilities.get_softpath(config, 'operams')
     conda:
         config['softparams']['conda']['operams']
     log:
@@ -29,9 +29,9 @@ rule operams:
     benchmark:
         'benchmarks/{group}/operams.txt'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     shell:
-        '(perl {input.exe} --short-read1 {input.sr1} --short-read2 {input.sr2} --long-read {input.lr} --out-dir {output.outdir} --polishing --num-processors {threads})  2> {log}'
+        '(perl {params.exe} --short-read1 {input.sr1} --short-read2 {input.sr2} --long-read {input.lr} --out-dir {output.outdir} --polishing --num-processors {threads})  2> {log}'
 
 rule compress_intermediate:
     input:
@@ -70,7 +70,7 @@ rule flye_nanopore:
     benchmark:
         'benchmarks/{group}/flye_nanopore.txt'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     params:
         mgsize = ESTIMATED_GENOMESIZE
     shell:
@@ -117,7 +117,7 @@ rule canu_nanopore:
     benchmark:
         'benchmarks/{group}/canu_nanopore.txt'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     params:
         mgsize = lambda wc: config[wc.group]['assembly']['canu_mg_size']
     shell:
@@ -144,9 +144,9 @@ rule canu_pacbio:
     benchmark:
         'benchmarks/{group}/canu_pacbio.{rtype}.txt'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     params:
-        mgsize = lambda wc: config[wc.group]['assembly']['canu_mg_size']
+        mgsize = lambda wc: config['samples'][wc.group]['assembly']['canu_mg_size']
     shell:
         'canu -p assembly -d {output.directory} genomeSize={params.mgsize} maxThreads={threads} useGrid=false -pacbio {input.reads} 2> {log}'
 
@@ -173,7 +173,7 @@ rule megahit_paired:
     conda:
         config['softparams']['conda']['megahit']
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
         'logs/{group}/assembly.megahit_paired.log'
     benchmark:
@@ -195,7 +195,7 @@ rule link_megahit:
 rule hifiasm_meta:
     input:
         fastq = 'reads/{group}/pacbio/merged_{model}.fastq.gz',
-        exe = config['softparams']['soft']['hifiasm_meta']
+        exe = utilities.get_softpath(config, 'hifiasm_meta')
     output:
         raw_unitigs       = protected('assembly/hifiasm_meta/{group}/{model}/asm.r_utg.gfa'),
         clean_unitigs     = protected('assembly/hifiasm_meta/{group}/{model}/asm.p_utg.gfa'),
@@ -206,7 +206,7 @@ rule hifiasm_meta:
     benchmark:
         'benchmarks/{group}.hifiasm_meta.{model}.txt'
     threads: 
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
         'logs/{group}/hifiasm_meta.{model}.log'
     shell:
@@ -261,7 +261,7 @@ rule unicycler_short:
     params:
         prefix = 'assembly/unicycler/{group}/short'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
         'logs/{group}/assembly.unicycler_short.log'
     benchmark:
@@ -279,7 +279,7 @@ rule unicycler_long:
     params:
         prefix = 'assembly/unicycler/{group}/long'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
         'logs/{group}/assembly.unicycler_long.log'
     benchmark:
@@ -299,7 +299,7 @@ rule unicycler_hybrid:
     params:
         prefix = 'assembly/unicycler/{group}/hybrid'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
         'logs/{group}/assembly.unicycler_hybrid.log'
     benchmark:

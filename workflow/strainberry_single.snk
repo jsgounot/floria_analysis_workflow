@@ -10,22 +10,22 @@ rule strainberry:
     input:
         fasta = 'references/used/{group}/refmap/{refori}.fa',
         fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
-        bam   = 'mapping/{group}/{refori}.{rtype}.bam',  
-        bai   = 'mapping/{group}/{refori}.{rtype}.bam.bai',
-        exe   = config['softparams']['soft']['strainberry']
+        bam   = 'mapping/{group}/{refori}.{srtype}.bam',  
+        bai   = 'mapping/{group}/{refori}.{srtype}.bam.bai',
+        exe   = utilities.get_softpath(config, 'strainberry')
     output:
-        directory = directory('phasing/strainberry/single/{group}/{refori}/{rtype}'),
-        scaffold  = protected('phasing/strainberry/single/{group}/{refori}/{rtype}/assembly.scaffolds.fa')
+        directory = directory('phasing/strainberry/single/{group}/{refori}/{srtype}'),
+        scaffold  = protected('phasing/strainberry/single/{group}/{refori}/{srtype}/assembly.scaffolds.fa')
     params:
-        add = lambda wc: '--nanopore ' if wc.rtype == 'nanopore' else ''
+        add = lambda wc: '--nanopore ' if wc.srtype == 'nanopore' else ''
     conda:
         config['softparams']['conda']['strainberry']
     benchmark:
-        'benchmarks/{group}/strainberry.single.{refori}.{rtype}.txt'
+        'benchmarks/{group}/strainberry.single.{refori}.{srtype}.txt'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
-        'logs/{group}/strainberry.single.{refori}.{rtype}.log'
+        'logs/{group}/strainberry.single.{refori}.{srtype}.log'
     shell:
         '{input.exe} -r {input.fasta} -b {input.bam} -o {output.directory} -c {threads} {params.add} 2> {log}'
 
@@ -33,7 +33,7 @@ rule strainberry_compress_fasta:
     input:
         rules.strainberry.output['scaffold']
     output:
-        'phasing/assemblies/{group}/{refori}.strainberry.{rtype}.fa.gz'
+        'phasing/assemblies/{group}/{refori}.strainberry.{srtype}.fa.gz'
     shell:
         'gzip -c {input} > {output}'
 
@@ -43,9 +43,9 @@ rule strainberry_compress_intermediate:
     input:
         rules.strainberry.output['scaffold']
     output:
-        'phasing/strainberry/single/{group}/{refori}/{rtype}/strainberry_ns.tar.gz'
+        'phasing/strainberry/single/{group}/{refori}/{srtype}/strainberry_ns.tar.gz'
     params:
-        path = 'phasing/strainberry/single/{group}/{refori}/{rtype}/strainberry_n*'
+        path = 'phasing/strainberry/single/{group}/{refori}/{srtype}/strainberry_n*'
     shell:
         'tar -czf {output} {params.path} --remove-files'
 
@@ -54,6 +54,6 @@ rule uncompress:
         fa = rules.strainberry_compress_fasta.output,
         sc = rules.strainberry_compress_intermediate.output
     output: 
-        temp('temp/assemblies/{group}/{refori}.{rtype}.strainberry.fa')
+        temp('temp/assemblies/{group}/{refori}.strainberry.{srtype}.fa')
     shell:
         'zcat {input.fa} > {output}'

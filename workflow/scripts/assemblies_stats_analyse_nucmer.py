@@ -17,13 +17,22 @@ At least 50% of the reference sequence / genome must be covered
 Original contains an issue. Here I use bedtool and pandas, the code is a bit slow but we don't really care in this case.
 '''
 
-import os, glob
+import os, glob, time
 
 bname = os.path.basename
 dname = os.path.dirname
 
-from pybedtools import BedTool
 import pandas as pd
+
+try:
+    import portion
+    portion_available = True
+except ImportError:
+    print ('Unable to load python portion module, will use pybedtools instead (slower).')
+    from pybedtools import BedTool
+    portion_available = False
+
+from pybedtools import BedTool
 
 def load_qcoords(fname):
     names = ['R_BEG', 'R_END', 'Q_BEG', 'Q_END', 'R_HITLEN', 'Q_HITLEN', 
@@ -33,12 +42,22 @@ def load_qcoords(fname):
     df['fidx'] = bname(fname).split('.')[0]
     return df
 
-def get_coverage(df):
+def get_coverage_bedtool(df):
     if len(df) > 1:
         # quite slow but does the job correctly
         # https://github.com/rvicedomini/strainberry-analyses/issues/1
         bt = BedTool.from_dataframe(df[['Q_NAME', 'Q_MIN', 'Q_MAX']].sort_values('Q_MIN'))
-        return bt.total_coverage()
+        return bt.merge().total_coverage()
+    else:
+        return (df['Q_MAX'] - df['Q_MIN']).sum()
+
+def get_coverage_portion(df):
+    if len(df) > 1:
+        # much faster than bedtool
+        intervals = [portion.closed(* row) for row in zip(df['Q_MIN'], df['Q_MAX'])]
+        merge = portion.Interval(* intervals)
+        return sum(i.upper - i.lower for i in merge)
+
     else:
         return (df['Q_MAX'] - df['Q_MIN']).sum()
 
@@ -49,7 +68,8 @@ def extract_sim(df):
     df['weight'] = df['R_HITLEN'] + df['Q_HITLEN']
 
     keys = ['Q_NAME', 'fidx']
-    cov = df.groupby(keys).apply(get_coverage)
+    func = get_coverage_portion if portion_available else get_coverage_bedtool    
+    cov = df.groupby(keys).apply(func)
     cov = cov.rename('aligned_bases').reset_index()
 
     df['widy'] = df['%IDY'] * df['weight']

@@ -1,0 +1,56 @@
+resfiles = [f'maincontigs/{species}/{sample}.fasta'
+	for species, samples in config.items()
+	for sample in samples]
+
+rule all:
+	input:
+		resfiles
+
+rule download_nanopore:
+	output:
+		'reads/{species}/{rid}.fastq.gz'
+	conda:
+		'ncbitools'
+	shell:
+		'fastq-dump --gzip --skip-technical --readids --clip --outdir reads/{wildcards.species}/ {wildcards.rid}'
+
+def get_read(config, wc):
+	rid = config[wc.species][wc.sample]
+	return f'reads/{wc.species}/{rid}.fastq.gz'
+
+rule flye:
+	input:
+		lambda wc: get_read(config, wc)
+	output:
+		'results/{species}/{sample}/flye/assembly.fasta'
+	params:
+		outdir = 'results/{species}/{sample}/flye/'
+	threads:
+		16
+	conda:
+		'isoassembly'
+	shell:
+		'flye --nano-raw {input} -t {threads} --out-dir {params.outdir}'
+
+rule medaka:
+	input:
+		reads = lambda wc: get_read(config, wc),
+		assembly = rules.flye.output
+	output:
+		'results/{species}/{sample}/medaka/consensus.fasta'
+	params:
+		outdir = 'results/{species}/{sample}/medaka/'
+	threads:
+		16
+	conda:
+		'isoassembly'
+	shell:
+		'medaka_consensus -i {input.reads} -d {input.assembly} -o {params.outdir} -t {threads} -m r941_min_hac_g507'
+
+rule extract_main_contig:
+	input:
+		rules.medaka.output
+	output:
+		'maincontigs/{species}/{sample}.fasta'
+	script:
+		'extract_main_contigs.py'

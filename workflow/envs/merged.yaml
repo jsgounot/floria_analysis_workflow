@@ -20,3 +20,7 @@ dependencies:
 - python-edlib=1.3.9
 - pandas
 - pybedtools 
+- pysam=0.21.0
+- kraken2=2.1.2
+- freebayes=1.3.2
+- unicycler=0.4.8

@@ -1,19 +1,12 @@
-import os
+import os, json
 from pathlib import Path
-
-# NOT BEFORE RUNNING
-# THE ISSUE HERE IS THAT SNAKEMAKE IS EXTREMELY BAD AT HANDLING LARGE WORKFLOW WITH CONDITIONNAL
-# EXPRESSIONS SUCH AS THIS ONE. THEREFORE, MOST OF THE TIME WILL BE BE SPEND DOING NOTHING,
-# EVEN WORST, SNAKEMAKE WILL TAKE A RIDICULOUS AMOUNT OF RAM FOR NOTHING AT ALL.
-# TWO WAYS TO CIRCUMVENT THIS ISSUE:
-# 1. RUN YOUR PIPELINE MULTIPLE TIME WITH --until OPTION AND THREE OR LESS FINAL OUTPUT FILES
-# 2. RUN YOUR PIPELINE (I THINK IT WOULD WORK BUT DID NOT TEST) UNTIL CHECKPOINT RULES SUCH AS
-# run_assembly OR wtdbg2_nanopore USING --until AS WELL
+from workflow.scripts import configparser
+from workflow.scripts import utilities
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 # GROUPS SETTING
 
-GROUPS = set(config)
+GROUPS = set(config['samples'])
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 # SOFT & CONDA CONFIGURATION
@@ -27,19 +20,20 @@ fname = workflow.source_path('condaenvs.json')
 with open(fname) as f:
     config['softparams']['conda'] = json.load(f)
 
+config.setdefault('miscs', {})
+config['miscs'].setdefault('GENERIC_THREADS', utilities.DEFAULT_GENERIC_THREADS)
+config['miscs'].setdefault('GENERIC_THREADS_SPLIT', utilities.DEFAULT_GENERIC_THREADS_SPLIT)
+
 # --------------------------------------------------------------------------------------------------------------------------------------------
 # WORKFLOW
+
+outputs = configparser.parse_config(config['outputs'], GROUPS)
+print (outputs)
 
 rule all:
     input:      
         'logs/configuration.json',
-        expand('refcomp/{group}.mummer.txt', group=GROUPS),
-        expand('refcomp/{group}.fastani.txt', group=GROUPS),
-        
-        expand('stats/assemblies/{group}/inpref.glopp.illumina.abysspe.short_reads.none.lofreq/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/inpref.glopp.nanopore.wtdbg2.long_reads.nanopore.longshot/mummer/circos/done.empty',
-            group=GROUPS)
+        outputs
 
 rule copy_config:
     output:
@@ -99,11 +93,11 @@ module sb:
 
 use rule * from sb as sb_*
 
-module gl:
-    snakefile: "workflow/glopp_single.snk"
+module flsi:
+    snakefile: "workflow/floria_single.snk"
     config: config
 
-use rule * from gl as gl_*
+use rule * from flsi as flsi_*
 
 module hs:
     snakefile: "workflow/haplotype_stats.snk"

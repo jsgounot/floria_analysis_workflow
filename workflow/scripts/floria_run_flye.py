@@ -1,7 +1,7 @@
 # @Author: jsgounot
 # @Date:   2022-12-08 09:42:12
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-06-26 18:26:04
+# @Last Modified time: 2023-07-25 14:41:49
 
 # Run flye with floria output
 # Touch empty fasta file if input file or intermediate file are empty
@@ -36,6 +36,18 @@ logger.addHandler(file_handler)
 
 isempty = lambda fname: os.path.isfile(fname) == False or os.stat(fname).st_size == 0
 
+# Note on kmer size
+# Default kmer size is 17. It can't be higher than 17.
+# Using 17, base memory size is 8.4Gb no matter what
+# This is terrible for a AWS instance since it does not scale well at all with c6 instances
+# Using r6 is doable but make the assembly much slower.
+# Using kmer-size = 16 reduces base memory to 2.1.
+# You can estimate the memory size using: pow(4, KMERSIZE) / 2 / 1e9 Gb
+KMERSIZE = snakemake.params['kmersize']
+
+# Note that for short regions like here, flye mostly use only one
+# single thread, even when multiple threads are given
+
 def make_haplotype_assembly(elements):
     tar, fastq, wthreads = elements
 
@@ -68,16 +80,13 @@ def make_haplotype_assembly(elements):
     with open(logfile, 'w') as f:
 
         if not isempty(fastq):
-            cmdline = f'flye --out-dir {wdir} --threads {wthreads} --nano-raw {fastq}'
+            cmdline = f'flye --out-dir {wdir} --threads {wthreads} --nano-raw {fastq} --extra-params kmer_size={KMERSIZE}'
             rcode = subprocess.call(cmdline, shell=True, stdout=f, stderr=f)
             
             if int(rcode) != 0: 
-                msg = f'Flye return error code {rcode} with {fastq}. Possibly just no disjointigs \
-                    assembled if this is just a ponctual event'
+                msg = f'Flye return error code {rcode} with {fastq}. Most likely not enough reads. \
+                    Command line: {cmdline}'
                 logger.warning(msg)
-
-            # usual empty gz file does not have st_size == 0 but it looks like
-            # wtdbg2 just touch empty file with gz extension sometimes
 
     if os.path.isfile(of):
         shutil.copyfile(of, sub_outfile)
@@ -115,14 +124,18 @@ reads_tar = snakemake.input['reads_ar']
 outfile = snakemake.output[0]
 threads = snakemake.threads
 
-subprocess_thread = min(threads, 2)
-workers = threads // subprocess_thread
-workers = workers or 1
-workers = 20
+#subprocess_thread = min(threads, 2)
+#workers = threads // subprocess_thread
+#workers = workers or 1
+
+# we run all flye using a single thread
+workers = threads
+subprocess_thread = 1
 
 logger.info(f'Run flye using reads from: {reads_tar}')
 logger.info(f'Final contig file path: {outfile}')
 logger.info(f'Threads: {threads} - Workers: {workers}')
+logger.info(f'Kmer size: {KMERSIZE}')
 
 rtype = snakemake.wildcards['rtype']
 validate = lambda fname: fname.endswith('.fastq.gz') and bname(dname(fname)) == rtype

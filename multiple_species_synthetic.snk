@@ -1,5 +1,9 @@
-import os
+import os, json
 from pathlib import Path
+from workflow.scripts import configparser
+from workflow.scripts import utilities
+
+# Was called split_species_synthetic.snk before.
 
 # NOT BEFORE RUNNING
 # THE ISSUE HERE IS THAT SNAKEMAKE IS EXTREMELY BAD AT HANDLING LARGE WORKFLOW WITH CONDITIONNAL
@@ -13,7 +17,7 @@ from pathlib import Path
 # --------------------------------------------------------------------------------------------------------------------------------------------
 # GROUPS SETTING
 
-GROUPS = set(config)
+GROUPS = set(config['samples'])
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 # SOFT & CONDA CONFIGURATION
@@ -27,42 +31,19 @@ fname = workflow.source_path('condaenvs.json')
 with open(fname) as f:
     config['softparams']['conda'] = json.load(f)
 
+config.setdefault('miscs', {})
+config['miscs'].setdefault('GENERIC_THREADS', utilities.DEFAULT_GENERIC_THREADS)
+config['miscs'].setdefault('GENERIC_THREADS_SPLIT', utilities.DEFAULT_GENERIC_THREADS_SPLIT)
+
 # --------------------------------------------------------------------------------------------------------------------------------------------
 # WORKFLOW
 
+outputs = configparser.parse_config(config['outputs'], GROUPS)
+
 rule all:
     input:      
-        'logs/configuration.json',  
-        #expand('refcomp/{group}.mummer.txt', group=GROUPS),
-        #expand('refcomp/{group}.fastani.txt', group=GROUPS),
-        
-        expand('phasing/floria/presplit/{group}/nanopore/longshot/ploidy.tsv.gz', group=GROUPS),
-        # expand('phasing/floria/presplit/{group}/illumina/longshot/ploidy.tsv.gz', group=GROUPS),
-
-        expand('stats/assemblies/{group}/kraken_ref.nanopore.longshot.floria.wtdbg2.long_reads.nano/mummer/circos/done.empty',
-            group=GROUPS),
-        #expand('stats/assemblies/{group}/kraken_ref.nanopore.longshot.floria.flye.long_reads.none/mummer/circos/done.empty',
-        #    group=GROUPS),
-        expand('stats/assemblies/{group}/kraken_ref.nanopore.strainberry/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/kraken_presplit.nanopore.longshot.floria.wtdbg2.long_reads.nano/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/kraken_presplit.nanopore.longshot.floria.flye.long_reads.none/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/flye_nanopore_raw/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/megahit/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/strainxpress.fast/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/kraken_presplit.illumina.longshot.floria.abysspe.short_reads.none/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/kraken_presplit.illumina.longshot.floria.megahit.short_reads.none/mummer/circos/done.empty',
-            group=GROUPS)
-
-# {assembling}.{ass_reads}.{vcalling}.{phaser}.{phaser_mode}.{subassembler}.{subassembler_reads}.{subassembler_preset}
-# assembling = kraken_split, kraken_merged, none, assembly
-
+        'logs/configuration.json',
+        outputs
 
 rule copy_config:
     output:
@@ -128,6 +109,7 @@ module sbsi:
 
 use rule * from sbsi as sbsi_*
 
+
 module sbsp:
     snakefile: "workflow/strainberry_split.snk"
     config: config
@@ -139,6 +121,7 @@ module flps:
     config: config
 
 use rule * from flps as flps_*
+
 
 module flsp:
     snakefile: "workflow/floria_split.snk"

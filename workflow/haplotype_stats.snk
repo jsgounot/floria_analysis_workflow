@@ -1,12 +1,10 @@
-REFERENCES = {
-    group: sorted(expand('references/used/{group}/sample/{sample}.clean.fasta', group=group, sample=sorted(samples)))
-    for group, samples in config.items()
-}
-
-REFERENCES_DICT = {
-    group: {sample : f'references/used/{group}/sample/{sample}.clean.fasta' for sample in samples}
-    for group, samples in config.items()
-}
+# IMPORTANT: We need to sort the samples!!
+SAMPLES = {group: sorted(samples) for group, samples in config['samples'].items()}
+get_clean_ref_idx = lambda wc: f'references/used/{wc.group}/sample/{SAMPLES[wc.group][int(wc.idx)]}.{wc.sim}.{wc.length}.clean.fasta'
+get_clean_refs = lambda wc: [f'references/used/{wc.group}/sample/{sample}.{wc.sim}.{wc.length}.clean.fasta'
+    for sample in SAMPLES[wc.group]]
+get_clean_refs_dict = lambda wc: {sample: f'references/used/{wc.group}/sample/{sample}.{wc.sim}.{wc.length}.clean.fasta'
+    for sample in SAMPLES[wc.group]}
 
 # We need to rename references contigs to avoid
 # duplicated contig names, leading to circos issues
@@ -21,11 +19,17 @@ rule rename_fasta_query:
     script:
         'scripts/assemblies_stats_rename_fasta.py'
 
+def get_ref(wc):
+    if wc.sim == 'none' or wc.length == 'none':
+        return 'references/used/{group}/sample/{sample}.fasta'
+    else:
+        return 'references/used/{group}/sim_filtered/{sample}.{sim}.{length}.fasta'
+
 rule rename_fasta_ref:
     input:
-        'references/used/{group}/sample/{sample}.fasta'
+        get_ref
     output:
-        'references/used/{group}/sample/{sample}.clean.fasta'
+        'references/used/{group}/sample/{sample}.{sim}.{length}.clean.fasta'
     params:
         sample = lambda wc: wc.sample
     script:
@@ -34,11 +38,11 @@ rule rename_fasta_ref:
 rule mummer_nucmer:
     input:
         query = 'stats/assemblies/{group}/{basename}/ref.fa',
-        ref = lambda wc: REFERENCES[wc.group][int(wc.idx)]
+        ref = get_clean_ref_idx 
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.delta'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.delta'
     params:
-        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}'
+        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}'
     threads:
         4
     conda:
@@ -50,7 +54,7 @@ rule mummer_delta_filter:
     input:
         rules.mummer_nucmer.output
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.qdelta'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.qdelta'
     conda:
         config['softparams']['conda']['mummer']
     shell:
@@ -60,20 +64,20 @@ rule mummer_show_coords:
     input:
         rules.mummer_delta_filter.output
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.qcoords'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.qcoords'
     conda:
         config['softparams']['conda']['mummer']
     shell:
         'show-coords -qHTlc {input} > {output}'
 
 def get_qcoords(wildcards):
-    count = len(REFERENCES[wildcards.group])
+    count = len(SAMPLES[wildcards.group])
     group = [wildcards.group for _ in range(count)]
     basename = [wildcards.basename for _ in range(count)]
     idx = list(range(count))
 
     return expand( 
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.qcoords',
+        f'stats/assemblies/{{group}}/{{basename}}/mummer/{{idx}}.{wildcards.sim}.{wildcards.length}.qcoords',
         zip, group=group, basename=basename, idx=idx
         )
 
@@ -81,7 +85,7 @@ rule extract_best_results:
     input:
         get_qcoords
     output:
-        'stats/assemblies/{group}/{basename}/mummer/best_results.tsv'
+        'stats/assemblies/{group}/{basename}/mummer/best_results.{sim}.{length}.tsv'
     conda:
         config['softparams']['conda']['mummer']
     script:
@@ -94,18 +98,18 @@ checkpoint make_best_subfa:
     params:
         idx = lambda wc: wc.idx
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.fa'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.best.fa'
     script:
         'scripts/assemblies_stats_extract.py'
 
 rule mummer_nucmer_best:
     input:
         query = rules.make_best_subfa.output,
-        ref = lambda wc: REFERENCES[wc.group][int(wc.idx)]
+        ref = get_clean_ref_idx
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.full.delta'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.best.full.delta'
     params:
-        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.best.full'
+        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.best.full'
     threads:
         4
     conda:
@@ -117,9 +121,9 @@ rule mummer_dnadiff_best_complete:
     input:
         rules.mummer_nucmer_best.output
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.full.report'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.best.full.report'
     params:
-        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.best.full'
+        prefix = 'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.best.full'
     conda:
         config['softparams']['conda']['mummer']
     shell:
@@ -127,9 +131,11 @@ rule mummer_dnadiff_best_complete:
 
 rule mummer_dnadiff_best_empty:
     output:
-        touch('stats/assemblies/{group}/{basename}/mummer/{idx}.best.empty.report')
+        touch('stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.best.empty.report')
 
 def get_report(wildcards):
+    # This part might take a lot of time
+    # The best is to run it with --until hs_make_best_subfa
     output = checkpoints.make_best_subfa.get(** wildcards).output[0]
     if os.stat(output).st_size == 0:
         return rules.mummer_dnadiff_best_empty.output
@@ -140,18 +146,18 @@ rule mummer_dnadiff_best:
     input:
         get_report
     output:
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.report'
+        'stats/assemblies/{group}/{basename}/mummer/{idx}.{sim}.{length}.best.report'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
 def get_reports(wildcards):
-    count = len(REFERENCES[wildcards.group])
+    count = len(SAMPLES[wildcards.group])
     group = [wildcards.group for _ in range(count)]
     basename = [wildcards.basename for _ in range(count)]
     idx = list(range(count))
 
     return expand( 
-        'stats/assemblies/{group}/{basename}/mummer/{idx}.best.report',
+        f'stats/assemblies/{{group}}/{{basename}}/mummer/{{idx}}.{wildcards.sim}.{wildcards.length}.best.report',
         zip, group=group, basename=basename, idx=idx
         )
 
@@ -159,9 +165,9 @@ rule parse_report:
     input:
         get_reports
     output:
-        'stats/assemblies/{group}/{basename}/mummer/report.tsv'
+        'stats/assemblies/{group}/{basename}/mummer/report.{sim}.{length}.tsv'
     params:
-        lambda wc: REFERENCES[wc.group]
+        get_clean_refs
     script:
         'scripts/assemblies_stats_parse_reports.py'
 
@@ -169,9 +175,9 @@ rule compress_mummer:
     input:
         rules.parse_report.output
     output:
-        'stats/assemblies/{group}/{basename}/mummer/mummer_files.tar.gz'
+        'stats/assemblies/{group}/{basename}/mummer/mummer_files.{sim}.{length}.tar.gz'
     params:
-        path = 'stats/assemblies/{group}/{basename}/mummer/[0-9].*'
+        path = 'stats/assemblies/{group}/{basename}/mummer/[0-9]*.{sim}.{length}.*'
     shell:
         'tar -czf {output} {params.path} --remove-files'
 
@@ -179,9 +185,9 @@ rule prepare_circos_coords:
     input:
         get_reports
     output:
-        'stats/assemblies/{group}/{basename}/mummer/circos/1coords.tsv'
+        'stats/assemblies/{group}/{basename}/mummer/circos/1coords.{sim}.{length}.tsv'
     params:
-        'stats/assemblies/{group}/{basename}/mummer/*.best.full.1coords'
+        'stats/assemblies/{group}/{basename}/mummer/*.{sim}.{length}.best.full.1coords'
     shell:
         'awk \'BEGIN{{OFS="\\t"}} $2!="." && $3!="."{{ print $12,$1,$2,$7 }}\' {params} > {output}'
 
@@ -189,9 +195,9 @@ rule prepare_circos_snps:
     input:
         get_reports
     output:
-        'stats/assemblies/{group}/{basename}/mummer/circos/snps.int.tsv'
+        'stats/assemblies/{group}/{basename}/mummer/circos/snps.int.{sim}.{length}.tsv'
     params:
-        'stats/assemblies/{group}/{basename}/mummer/*.best.full.snps'
+        'stats/assemblies/{group}/{basename}/mummer/*.{sim}.{length}.best.full.snps'
     shell:
         'for f in {params}; \
         do \
@@ -201,11 +207,11 @@ rule prepare_circos_snps:
 
 rule prepare_circos_karyotype:
     input:
-        lambda wc: REFERENCES[wc.group]
+        get_clean_refs
     output:
-        'stats/assemblies/{group}/{basename}/mummer/circos/karyotype.txt'
+        'stats/assemblies/{group}/{basename}/mummer/circos/karyotype.{sim}.{length}.txt'
     params:
-        lambda wc: REFERENCES_DICT[wc.group]
+        get_clean_refs_dict
     script:
         'scripts/assemblies_stats_circos_karyotype.py'
 
@@ -217,4 +223,4 @@ rule make_all_files:
         ancient(rules.prepare_circos_karyotype.output),
         ancient(rules.compress_mummer.output)
     output:
-        touch('stats/assemblies/{group}/{basename}/mummer/circos/done.empty')
+        touch('stats/assemblies/{group}/{basename}/mummer/circos/done.{sim}.{length}.empty')

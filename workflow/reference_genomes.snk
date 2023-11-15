@@ -21,25 +21,6 @@ rule download_ncbiasbly:
     shell:
         'esearch -db assembly -query "{wildcards.ncbiid}" | elink -target nucleotide -name assembly_nuccore_refseq | efetch -format fasta > {output} && [[ -s {output} ]]'
 
-'''
-Does not work properly: 
-rule simuG:
-    input:
-        exe = config['softparams']['soft']['simuG'],
-        ref = lambda wc: get_sim_param(wc, config, 'ref')
-    output:
-        'references/simulated/{group}/{sample}.simseq.genome.fa'
-    params:
-        snp_count = lambda wc: get_sim_param(wc, config, 'snp_count'),
-        indel_count = lambda wc: get_sim_param(wc, config, 'indel_count'), 
-        seed = lambda wc: get_sim_param(wc, config, 'seed'),
-        prefix = 'references/simulated/{group}/{sample}'
-    log:
-        'logs/{group}/simuG.{sample}.log'
-    shell:
-        '{input.exe} -r {input.ref} -p {params.prefix} -snp_count {params.snp_count} -indel_count {params.indel_count} -seed {params.seed} > {log}'
-'''
-
 rule simu_perso:
     input:
         ref = lambda wc: get_sim_param(wc, config, 'ref')
@@ -78,3 +59,16 @@ rule fasta_index:
         config['softparams']['conda']['minimap2']
     shell:
         'samtools faidx {input}'
+
+rule subtrack_ref:
+    # This function make the link between
+    # references_comparison.snk:mummer_sim_segs output
+    # that is needed by haplotype_stats.snk:rename_fasta_ref
+    # when a similarity and length threshold is provided
+    input:
+        reffasta = rules.link_fasta.output[0],
+        simtrack = 'refcomp/{group}.simtracks.reverse.{sim}.{length}.tsv.gz'
+    output:
+        'references/used/{group}/sim_filtered/{sample}.{sim}.{length}.fasta'
+    script:
+        'scripts/rg_subtrack_ref.py'

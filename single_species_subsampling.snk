@@ -1,155 +1,39 @@
-import os
+import os, json
 from pathlib import Path
-
-# NOT BEFORE RUNNING
-# THE ISSUE HERE IS THAT SNAKEMAKE IS EXTREMELY BAD AT HANDLING LARGE WORKFLOW WITH CONDITIONNAL
-# EXPRESSIONS SUCH AS THIS ONE. THEREFORE, MOST OF THE TIME WILL BE BE SPEND DOING NOTHING,
-# EVEN WORST, SNAKEMAKE WILL TAKE A RIDICULOUS AMOUNT OF RAM FOR NOTHING AT ALL.
-# TWO WAYS TO CIRCUMVENT THIS ISSUE:
-# 1. RUN YOUR PIPELINE MULTIPLE TIME WITH --until OPTION AND THREE OR LESS FINAL OUTPUT FILES
-# 2. RUN YOUR PIPELINE (I THINK IT WOULD WORK BUT DID NOT TEST) UNTIL CHECKPOINT RULES SUCH AS
-# run_assembly OR wtdbg2_nanopore USING --until AS WELL
+from workflow.scripts import configparser
+from workflow.scripts import utilities
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 # GROUPS SETTING
 
-GROUPS = set(config)
-GROUPS_RC = [e for e in GROUPS if e != 'subgroup_1']
-
-DEFAULTL = '-l 15000'
-DEFAULTE = '-e 0.01'
-DEFAULTD = '-d 0.001'
-DEFAULTN = '-n 10'
-DEFAULTX = '-X' 
-
-def search_preset(cfname, * values):
-    with open(cfname) as f:
-        d = json.load(f)
-    
-    found = []
-
-    for k, v in d.items():
-        if all(value in v for value in values):
-            # print (k, v)
-            found.append(k)
-    
-    return found
-
-cfname = '../../configs/glopp_config.json'
-GLOPP_PRESETS = search_preset(cfname, DEFAULTD, DEFAULTN, DEFAULTX)
-
-config['softparams'] = {}
+GROUPS = set(config['samples'])
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
-# SOFT CONFIGURATION
+# SOFT & CONDA CONFIGURATION
+config['softparams'] = {}
 
 fname = workflow.source_path('softpaths.json')
 with open(fname) as f:
     config['softparams']['soft'] = json.load(f)
 
-# --------------------------------------------------------------------------------------------------------------------------------------------
-# CONDA CONFIGURATION
-
 fname = workflow.source_path('condaenvs.json')
 with open(fname) as f:
     config['softparams']['conda'] = json.load(f)
 
+config.setdefault('miscs', {})
+config['miscs'].setdefault('GENERIC_THREADS', utilities.DEFAULT_GENERIC_THREADS)
+config['miscs'].setdefault('GENERIC_THREADS_SPLIT', utilities.DEFAULT_GENERIC_THREADS_SPLIT)
+
 # --------------------------------------------------------------------------------------------------------------------------------------------
-# GP DICS
+# WORKFLOW
 
-# old one
-gpdic = {
-    'illumina': 'illumina_gp9',
-    'nanopore': 'nanopore_gp2025',
-    'hybrid':   'hybrid_gp1989',
-    'hifi':     'pacbio_bbmap_gp1683'
-}
-
-gp_illumina = 'illumina_gp9'
-gp_nanopore = 'nanopore_gp1035'
-gp_hybrid   = 'hybrid_gp945' # changed it 
-gp_hifi     = 'pacbio_bbmap_gp1683'
-
-'''
-"gp2439": [
-        "-l 75000",
-        "-e 0.04",
-        "-d 0.001",
-        "-n 10",
-        "-X"
-    ],
-
-"gp2583": [
-        "-l 100000",
-        "-e 0.005",
-        "-d 0.001",
-        "-n 10",
-        "-X"
-    ],
-    
-"gp2115": [
-        "-l 50000",
-        "-e 0.005",
-        "-d 0.001",
-        "-n 10",
-        "-X"
-    ],
-
-"gp1035": [
-        "-l 15000",
-        "-e 0.04",
-        "-d 0.001",
-        "-n 10",
-        "-X"
-    ],
-
-"gp945": [
-        "-l 15000",
-        "-e 0.005",
-        "-d 0.001",
-        "-n 10",
-        "-X"
-    ],
-
-"gp1125": [
-        "-l 15000",
-        "-e 0.1",
-        "-d 0.001",
-        "-n 10",
-        "-X"
-    ],
-
-'''
+outputs = configparser.parse_config(config['outputs'], GROUPS)
+print (outputs)
 
 rule all:
     input:      
         'logs/configuration.json',
-        expand('refcomp/{group}.mummer.txt', group=GROUPS_RC),
-        expand('refcomp/{group}.fastani.txt', group=GROUPS_RC),
-        
-        expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_nanopore}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-            group=GROUPS),
-        
-        expand('stats/assemblies/{group}/inpref.strainberry.nanopore/mummer/circos/done.empty',
-            group=GROUPS),
-
-        expand(f'phasing/glopp/{{group}}/inpref/{gp_nanopore}/longshot/glopp.long_reads.readsinfo.gz',
-            group=GROUPS),
-
-        expand('stats/assemblies/{group}/none.flye_nanopore_raw/mummer/circos/done.empty',
-            group=GROUPS),
-
-        #expand(f'stats/assemblies/{{group}}/inpref.glopp.nanopore_gp1125.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_hybrid}.wtdbg2.long_reads.longshot/mummer/circos/done.empty',
-        #    group=GROUPS),
-        #expand(f'phasing/glopp/{{group}}/inpref/{gp_hybrid}/longshot/glopp.long_reads.readsinfo.gz',
-        #    group=GROUPS),
-
-        expand(f'stats/assemblies/{{group}}/inpref.glopp.{gp_illumina}.abysspe.short_reads.lofreq/mummer/circos/done.empty',
-            group=GROUPS),
-        expand('stats/assemblies/{group}/none.strainxpress.regular/mummer/circos/done.empty',
-            group=GROUPS)
+        outputs
 
 rule copy_config:
     output:
@@ -204,16 +88,16 @@ module sx:
 use rule * from sx as sx_*
 
 module sb:
-    snakefile: "workflow/strainberry.snk"
+    snakefile: "workflow/strainberry_single.snk"
     config: config
 
 use rule * from sb as sb_*
 
-module gl:
-    snakefile: "workflow/glopp.snk"
+module flsi:
+    snakefile: "workflow/floria_single.snk"
     config: config
 
-use rule * from gl as gl_*
+use rule * from flsi as flsi_*
 
 module hs:
     snakefile: "workflow/haplotype_stats.snk"

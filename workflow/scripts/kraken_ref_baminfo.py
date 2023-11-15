@@ -2,83 +2,88 @@
 # @Author: jsgounot
 # @Date:   2023-04-24 13:04:54
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-06-21 16:49:11
+# @Last Modified time: 2023-07-24 14:48:39
 
 import pysam
 import pandas as pd
 import numpy as np
 
-# First pass
-bamfile = snakemake.input[0]
-bamfile = pysam.AlignmentFile(bamfile, "rb")
+# pd.set_option('display.max_colwidth', None)
 
 CIGAR = 'MIDSNHPCXBE'
-df = []
 
-for read in bamfile.fetch(until_eof=True):
-    iql = read.infer_query_length()
-    irl = read.infer_read_length()
-    len_ops, num_ops = read.get_cigar_stats()
+def iter_bam_contig(bamfile):
+    # Massively drop memory consumption to chunk by contigs
 
-    cigar = {
-    	CIGAR[idx]: value
-    	for idx, value in enumerate(len_ops)
-    }
+    bamfile = pysam.AlignmentFile(bamfile, "rb")
+    rows = []
+    tracked_contig = None
 
-    name = read.query_name
-    contig = read.reference_name
-    taxid = int(contig.split('_')[-1]) if contig else 'None'
+    for aln in bamfile.fetch(until_eof=True):
+        iql = aln.infer_query_length() or np.nan
+        irl = aln.infer_read_length() or np.nan
+        len_ops, num_ops = aln.get_cigar_stats()
 
-    df.append({
-    	'name': name,
-    	'contig': contig,
-    	'taxid': taxid,
-    	'iql': iql,
-    	'irl': irl,
-    	** cigar
-    	})
+        mapq = aln.mapping_quality,
+        flag = aln.flag,
+        assert len(mapq) == 1
+        assert len(flag) == 1
+        mapq = mapq[0]
+        flag = flag[0]
 
-bamfile.close()
+        cigar = {
+            CIGAR[idx]: value
+            for idx, value in enumerate(len_ops)
+        }
 
-df = pd.DataFrame(df)
+        name = aln.query_name
+        contig = aln.reference_name
+        taxid = int(contig.split('_')[-1]) if contig else 'None'
+
+        if tracked_contig != contig and rows:
+            #print (f'Process {tracked_contig} {len(rows)}')
+            yield pd.DataFrame(rows)
+            rows = []
+            tracked_contig = contig
+
+        rows.append({
+            'name': name,
+            'contig': contig,
+            'taxid': taxid,
+            'iql': iql,
+            'irl': irl,
+            'mapq': mapq,
+            'flag': flag,
+            ** cigar
+            })
+
+    if rows:
+        yield pd.DataFrame(rows)
+
+    bamfile.close()
+
+# First pass
+bamfile = snakemake.input[0]
+
+df = pd.concat(iter_bam_contig(bamfile))
+df = df.reset_index(drop=True)
+df['sim'] = (df['M'] / df['irl']).fillna(0) * 100
+
 outfile = snakemake.output['baminfo']
 df.to_csv(outfile, sep='\t', compression='gzip', index=False)
 
 # -------- 
 
-df['sim'] = (df['M'] / df['irl']).fillna(0) * 100
 df = df[df['sim'] == df.groupby(['name', 'taxid'])['sim'].transform(max)]
+df['rank'] = df.groupby('name')['sim'].rank(ascending=False, method='dense')
 
-# fun = lambda serie: serie.rank(ascending=False)
-# df['rank'] = df.groupby('name')['sim'].transform(fun)
-
-df['rank'] = df.groupby('name')['sim'].rank(ascending=False, method='first')
-
+sdf = df[df['rank'] == 1][['name', 'contig', 'taxid']]
 outfile = snakemake.output['maxrank']
-df.to_csv(outfile, sep='\t', compression='gzip', index=False)
+sdf.to_csv(outfile, sep='\t', compression='gzip', index=False)
 
 # -------- 
 
 df = df.sort_values('name')
-
-'''
-Old code, should produce the same results but much slower. I keep it if
-something looks wrong with the new way.
-
-def transform_name(sdf):
-    sdf['rank'] = sdf['sim'].rank(ascending=False, method='first')
-    sdf = sdf[(sdf['rank'] == 1) | (sdf['rank'] == 2)].sort_values('rank')
-    sim2 = sdf.iloc[1]['sim'] if len(sdf) > 1 else np.nan
-    serie = sdf.iloc[0]
-    serie['sim_rank2'] = sim2
-    return serie
-
-df = df.groupby('name').apply(transform_name)
-df = df.reset_index(drop=True)
-
-outfile = snakemake.output['filtered']
-df.to_csv(outfile, sep='\t', compression='gzip', index=False)
-'''
 
 sdf = df[df['rank'] < 3]
 sdf = sdf.drop_duplicates(['name', 'rank'])

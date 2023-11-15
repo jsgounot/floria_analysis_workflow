@@ -5,7 +5,7 @@ rule interleave_reads:
         sr1 = 'reads/{group}/illumina/merged/R1.fastq.gz',
         sr2 = 'reads/{group}/illumina/merged/R2.fastq.gz'
     output:
-        'phasing/strainxpress/{group}/interleaved.fastq'
+        temp('phasing/strainxpress/{group}/interleaved.fastq')
     script:
         'scripts/strainxpress_interleave_illumina.py'
         #'python {executable} {input.sr1} {input.sr2} > {output}'
@@ -13,11 +13,10 @@ rule interleave_reads:
 rule strainxpress_fast:
     input:
         fastq = rules.interleave_reads.output,
-        exe = config['softparams']['soft']['strainxpress']
+        exe = utilities.get_softpath(config, 'strainxpress')
     output:
         directory = directory('phasing/strainxpress/{group}/fast'),
-        scaffold  = protected('phasing/strainxpress/{group}/fast/stageb/final_contigs.fasta'),
-        mapres = temp('phasing/strainxpress/{group}/fast/all_reads_sort.map')
+        scaffold  = protected('phasing/strainxpress/{group}/fast/stageb/final_contigs.fasta')
     params:
         insertsize = 300,
         readlength = 150
@@ -26,7 +25,7 @@ rule strainxpress_fast:
     benchmark:
         'benchmarks/{group}/strainxpress.fast.txt'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
         'logs/{group}/strainxpress.fast.log'
     shell:
@@ -35,11 +34,10 @@ rule strainxpress_fast:
 rule strainxpress_regular:
     input:
         fastq = rules.interleave_reads.output,
-        exe = config['softparams']['soft']['strainxpress']
+        exe = utilities.get_softpath(config, 'strainxpress')
     output:
         directory = directory('phasing/strainxpress/{group}/regular'),
-        scaffold  = protected('phasing/strainxpress/{group}/regular/stageb/final_contigs.fasta'),
-        mapres = temp('phasing/strainxpress/{group}/regular/all_reads_sort.map')
+        scaffold  = protected('phasing/strainxpress/{group}/regular/stageb/final_contigs.fasta')
     params:
         insertsize = 300,
         readlength = 150
@@ -48,7 +46,7 @@ rule strainxpress_regular:
     benchmark:
         'benchmarks/{group}/strainxpress.regular.txt'
     threads:
-        utilities.get_generic_threads
+        config['miscs']['GENERIC_THREADS']
     log:
         'logs/{group}/strainxpress.regular.log'
     shell:

@@ -2,23 +2,17 @@
 # @Author: jsgounot
 # @Date:   2022-04-01 17:34:35
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-06-19 08:57:24
+# @Last Modified time: 2023-11-14 11:06:43
 
-GENERIC_THREADS = 32
-GENERIC_THREADS_SPLIT = 16
-
-GENERIC_THREADS = 32
-GENERIC_THREADS_SPLIT = 32
-
-GENERIC_THREADS = 48
-GENERIC_THREADS_SPLIT = 8
+DEFAULT_GENERIC_THREADS = 32
+DEFAULT_GENERIC_THREADS_SPLIT = 16
 
 import os, copy
 import gzip
 
 def get_ref(wildcards, config, scon=None):
     group, sample = wildcards.group, wildcards.sample   
-    scon = scon or config[group][sample]
+    scon = scon or config['samples'][group][sample]
 
     if 'simulate' in scon:
         return f'references/simulated/{group}/{sample}.simseq.genome.fa'
@@ -35,7 +29,7 @@ def get_ref(wildcards, config, scon=None):
 
 def get_sim_param(wildcards, config, param):
     group, sample = wildcards.group, wildcards.sample   
-    scon = config[group][sample]
+    scon = config['samples'][group][sample]
 
     if param == 'ref':
         scon = copy.deepcopy(scon)
@@ -63,7 +57,7 @@ def get_ref_size(refpath):
 
 def get_mapping_ref(wildcards, config):
     group = wildcards.group
-    sample = [sample for sample, sdata in config[group].items() 
+    sample = [sample for sample, sdata in config['samples'][group].items() 
               if sdata.get('mapping_ref', None) == 'True']
     
     if len(sample) != 1:
@@ -86,3 +80,27 @@ def get_generic_threads(wc):
 
 def get_generic_threads_split(wc):
     return GENERIC_THREADS_SPLIT
+
+def get_reads(group, mtype, model=None):
+    if mtype == 'illumina':
+        return [
+            f'reads/{group}/illumina/merged/R1.fastq.gz',
+            f'reads/{group}/illumina/merged/R2.fastq.gz'
+        ]
+
+    elif mtype == 'pacbio':
+        return [f'reads/{group}/pacbio/merged_{model}.fastq.gz']
+
+    elif mtype == 'nanopore' or mtype == 'hybrid':
+        return [f'reads/{group}/nanopore/merged.fastq.gz']
+    
+    else:
+        raise Exception(f'mtype not found: {mtype}')
+
+def get_softpath(config, softname):
+    softpath = config['softparams']['soft'].get(softname, None)
+    if softpath is None:
+        raise Exception(f'Configuration error: Unable to find software path for soft "{softname}" within softpaths.json')
+    if softpath == '':
+        print (f'WARNING: Softpath for soft name {softname} is currently empty. Please add it to your softpaths.json if you plan to use it.')
+    return softpath

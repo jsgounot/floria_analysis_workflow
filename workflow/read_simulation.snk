@@ -1,6 +1,13 @@
 import os
 
-# --------------------------------------------------------------------------------------------------------------------------------------------
+class MissingInputException(Exception):
+    pass
+
+def get_sample_info(config, wc, keyword, default=None):
+    value = config['samples'][wc.group][wc.sample].get(keyword, default)
+    if value is None:
+        raise MissingInputException(f'Missing subsampling keyword "{keyword}" in your configuration file for group "{wc.group}" and sample "{wc.sample}".')
+    return str(value)
 
 rule badread_make_ref:
     input:
@@ -8,7 +15,7 @@ rule badread_make_ref:
     output:
         temp('reads/{group}/nanopore/{sample}.ref.fa.gz')
     params:
-        circular = lambda wc: config[wc.group][wc.sample]['circular']
+        circular = lambda wc: get_sample_info(config, wc, 'circular', 'true')
     shell:
         'awk \'{{ if ( $0 ~ /^>/ ) {{ print $0" circular={params.circular}" }} else {{ print $0 }} }}\' {input} | gzip > {output}'
 
@@ -16,9 +23,9 @@ rule nanopore_badread_good:
     input:
         rules.badread_make_ref.output
     output:
-        'reads/{group}/nanopore/{sample}.good.fastq.gz'
+        temp('reads/{group}/nanopore/{sample}.good.fastq.gz')
     params:
-        quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
+        quantity = lambda wc: get_sample_info(config, wc, 'quantity') + 'x',
         error_model = 'random',
         identity = '95,100,2',
         glitches = '0,0,0',
@@ -27,7 +34,7 @@ rule nanopore_badread_good:
         chimeras = 0,
         start_adapter_seq = '""',
         end_adapter_seq = '""',
-        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
+        seed = lambda wc: get_sample_info(config, wc, 'seed', '1')
     conda:
         config['softparams']['conda']['badread']
     log:
@@ -42,16 +49,16 @@ rule nanopore_badread_bad:
     input:
         rules.badread_make_ref.output
     output:
-        'reads/{group}/nanopore/{sample}.bad.fastq.gz'
+        temp('reads/{group}/nanopore/{sample}.bad.fastq.gz')
     params:
-        quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
+        quantity = lambda wc: get_sample_info(config, wc, 'quantity') + 'x',
         error_model = 'random',
         identity = '75,90,8',
         glitches = '1000,100,100',
         junk_reads = 5,
         random_reads = 5,
         chimeras = 10,
-        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
+        seed = lambda wc: get_sample_info(config, wc, 'seed', '1')
     conda:
         config['softparams']['conda']['badread']
     log:
@@ -65,9 +72,9 @@ rule nanopore_badread_average:
     input:
         rules.badread_make_ref.output
     output:
-        'reads/{group}/nanopore/{sample}.average.fastq.gz'
+        temp('reads/{group}/nanopore/{sample}.average.fastq.gz')
     params:
-        quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
+        quantity = lambda wc: get_sample_info(config, wc, 'quantity') + 'x',
         qscore_model = 'nanopore2020',
         error_model = 'nanopore2020',
         identity = '87.5,97.5,5',
@@ -75,7 +82,7 @@ rule nanopore_badread_average:
         junk_reads = 1,
         random_reads = 1,
         chimeras = 1,
-        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
+        seed = lambda wc: get_sample_info(config, wc, 'seed', '1')
     conda:
         config['softparams']['conda']['badread']
     log:
@@ -98,7 +105,7 @@ rule nanopore_badread_average_pid:
     output:
         'reads/{group}/nanopore/{sample}.average_pid{pid}.fastq.gz'
     params:
-        quantity = lambda wc: str(config[wc.group][wc.sample]['quantity']) + 'x',
+        quantity = lambda wc: get_sample_info(config, wc, 'quantity') + 'x',
         qscore_model = 'nanopore2020',
         error_model = 'nanopore2020',
         identity = make_pid,
@@ -106,7 +113,7 @@ rule nanopore_badread_average_pid:
         junk_reads = 1,
         random_reads = 1,
         chimeras = 1,
-        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
+        seed = lambda wc: get_sample_info(config, wc, 'seed', '1')
     wildcard_constraints:
         pid="\d+"
     conda:
@@ -128,10 +135,10 @@ rule nanopore_badread_readsid_correction:
     script:
         'scripts/rs_rename_fastqids.py'
 
-def get_nanopore(wildcards):
-    quality = config[wildcards.group][wildcards.sample]['nanopore']  
-    return os.path.join('reads', wildcards['group'], 'nanopore',
-        wildcards['sample'] + '.' + quality + '.rids_corrected.fastq.gz')
+def get_nanopore(wc):
+    quality = get_sample_info(config, wc, 'nanopore_qual')
+    return os.path.join('reads', wc['group'], 'nanopore',
+        wc['sample'] + '.' + quality + '.rids_corrected.fastq.gz')
 
 rule link_nanopore:
     input:
@@ -141,9 +148,9 @@ rule link_nanopore:
     shell:
         'ln -s $(pwd)/{input} {output}'
 
-def get_nanopore_reads(wildcards):
-    group = wildcards.group
-    samples = [sample for sample in config[group] if sample != 'internal']
+def get_nanopore_reads(wc):
+    group = wc.group
+    samples = [sample for sample in config['samples'][group] if sample != 'internal']
     return expand(
         'reads/{group}/nanopore/{sample}.used.fastq.gz',
         group=group, sample=samples
@@ -167,11 +174,11 @@ rule illumina_art_run:
         r2 = 'reads/{group}/illumina/{sample}_R2.fq'
     params:
         instrument = 'HS25',
-        seed = lambda wc: str(config[wc.group][wc.sample]['seed']),
+        seed = lambda wc: get_sample_info(config, wc, 'seed', '1'),
         length = 150,
         meansize = 300,
         std = 10,
-        coverage = lambda wc: str(config[wc.group][wc.sample]['quantity']),
+        coverage = lambda wc: get_sample_info(config, wc, 'quantity'),
         outname = 'reads/{group}/illumina/{sample}_R'
     conda:
         config['softparams']['conda']['art']
@@ -200,7 +207,7 @@ rule illumina_readsid_correction:
 
 def get_illumina_reads(wildcards):
     group = wildcards.group
-    samples = [sample for sample in config[group]]
+    samples = [sample for sample in config['samples'][group]]
     return expand(
         'reads/{group}/illumina/{sample}_{ridx}.rids_corrected.fq.gz',
         group=group, sample=samples, ridx=wildcards.ridx
@@ -254,9 +261,9 @@ rule pacbio_pbsim_ccs:
     output:
         fastq = 'reads/{group}/pacbio/{sample}_ccs_0001.fastq'
     params:
-        cover = lambda wc: config[wc.group][wc.sample]['quantity'],
+        cover = lambda wc: str(config[wc.group][wc.sample]['quantity']),
         prefix = 'reads/{group}/pacbio/{sample}_ccs',
-        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
+        seed = lambda wc: get_sample_info(config, wc, 'seed', '1')
     conda:
         config['softparams']['conda']['pbsim']
     shell:
@@ -271,9 +278,9 @@ rule pacbio_pbsim2:
     conda:
         config['softparams']['conda']['pbsim2']
     params:
-        depth = lambda wc: config[wc.group][wc.sample]['quantity'],
+        depth = lambda wc: get_sample_info(config, wc, 'quantity'),
         prefix = 'reads/{group}/pacbio/{sample}_p6c4',
-        seed = lambda wc: str(config[wc.group][wc.sample]['seed'])
+        seed = lambda wc: get_sample_info(config, wc, 'seed', '1')
     shell:
         'pbsim --seed {params.seed} --depth {params.depth} --hmm_model {input.model} --prefix {params.prefix} {input.reference}'
 
@@ -285,11 +292,11 @@ rule pacbio_bbmap:
     output:
         fastq = 'reads/{group}/pacbio/{sample}_bbmap_0001.fastq'
     params:
-        depth = lambda wc: config[wc.group][wc.sample]['quantity'],
+        depth = lambda wc: get_sample_info(config, wc, 'quantity'),
         minlength = 9000,
         midlength = 10000,
         maxlength = 12000,
-        seed = lambda wc: str(config[wc.group][wc.sample]['seed']),
+        seed = lambda wc: get_sample_info(config, wc, 'seed', '1'),
         pbmin = 0.001,
         pbmax = 0.01,
         add = 'build=1 ow=t illuminanames=t addslash=t pacbio=t paired=f gaussianlength=t'
@@ -324,7 +331,7 @@ rule pacbio_readsid_correction:
 
 def get_pacbio_reads(wildcards):
     group = wildcards.group
-    samples = [sample for sample in config[group] if sample != 'internal']
+    samples = [sample for sample in config['samples'][group] if sample != 'internal']
     return expand(
         'reads/{group}/pacbio/{sample}_{{pacbio_model}}_0001.rids_corrected.fastq.gz',
         group=group, sample=samples

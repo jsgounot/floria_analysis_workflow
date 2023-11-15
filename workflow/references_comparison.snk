@@ -1,18 +1,12 @@
 from itertools import permutations
 
 def get_refs(group):
-    samples = sorted(config[group])
+    samples = sorted(config['samples'][group])
     return expand('references/used/{group}/sample/{sample}.fasta', group=group, sample=samples)
 
 def get_fasta(group, idx):
     refs = get_refs(group)
     return refs[int(idx)]
-
-def make_idxs():
-    for group in config:
-        refidxs = range(len(get_refs(group)))
-        for p1, p2 in permutations(refidxs, 2):
-            yield group, p1, p2
 
 rule list_files:
     input:
@@ -109,3 +103,29 @@ rule mummer_merge:
         config['softparams']['conda']['mummer']
     script:
         'scripts/rc_extract_mummer_dnadiff_report.py'
+
+rule mummer_sim_segs:
+    input:
+        coors = get_coords,
+        dnadiff = get_dnadiff
+    output:
+        'refcomp/{group}.simsegs.tsv.gz'
+    params:
+        refs = lambda wc: get_refs(wc.group)
+    conda:
+        config['softparams']['conda']['mummer']
+    script:
+        'scripts/rc_mummer_merge_sim_segs.py'
+
+rule mummer_sim_segs:
+    input:
+        rules.mummer_sim_segs.output[0]
+    output:
+        simtracks = 'refcomp/{group}.simtracks.{sim}.{length}.tsv.gz',
+        revtracks = 'refcomp/{group}.simtracks.reverse.{sim}.{length}.tsv.gz'
+    params:
+        refs = lambda wc: get_refs(wc.group)
+    conda:
+        config['softparams']['conda']['mummer']
+    script:
+        'scripts/rc_mummer_merge_sim_tracks.py'

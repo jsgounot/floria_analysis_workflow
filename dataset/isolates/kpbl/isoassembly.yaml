@@ -1,0 +1,7 @@
+name: floria_isolate_assembly
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - flye
+  - medaka

@@ -1,59 +1,85 @@
 import glob, os, json
 from scripts import utilities
 
-wildcard_constraints:
-    vcaller="longshot|lofreq|binocustom",
-    rtype="long_reads|short_reads"
-
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Execution
 
+FMODES = {
+    'fp0': '-l 100 -d 0.0001',
+    'fp1': '-l 100 -d 0.0005 -e 0.01'
+}
+
 rule floria:
     input:
-        exe   = config['softparams']['soft']['floria'],
         fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
         fai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa.fai',
-        bam   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam',
-        bai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.sorted.bam.bai',
+        bam   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam',
+        bai   = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam.bai',
         vcf   = 'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header'
     output:
-        directory('phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir/')
+        directory('phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir/{fmode}/')
+    params:
+        exe = utilities.get_softpath(config, 'floria'),
+        extra_params = lambda wc: FMODES[wc.fmode] if wc.fmode != 'none' else ''
     conda:
         config['softparams']['conda']['floria']
     threads:
-        utilities.get_generic_threads_split
+        config['miscs']['GENERIC_THREADS_SPLIT']
     log:
-        'logs/{group}/floria.split.{krtype}.{tid}.{vcaller}.log'
+        'logs/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.log'
     benchmark:
-        'benchmarks/{group}/floria.split.{krtype}.{tid}.{vcaller}.txt'
+        'benchmarks/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.txt'
     shell:
-        '{input.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
-            --output-reads --gzip-reads > {log}'
+        '{params.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
+            --output-reads --gzip-reads {params.extra_params} > {log}'
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Post-processing
 # This part is made to compress all directory for both space and files number reduction
 
-rule compress_floria_subdir:
+rule mv_compress:
+    # We need to mv first to avoid snakemake to get confused with timestamps
     input:
-        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir/'
+        rules.floria.output[0]
     output:
-        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{dirname}.tar.gz'
+        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir.{fmode}.tar.gz'
     params:
-        path = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir/*/{dirname}'
-    shell:
-        'tar -czf {output} {params.path} --remove-files'
-
-rule prep_floria_outputs:
-    input:
-        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.vartig_info.tar.gz',
-        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.local_parts.tar.gz',
-        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.long_reads.tar.gz',
-        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.short_reads.tar.gz',
-    output:
-        touch('phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/prep.done')
+        dname = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/done/{fmode}'
     priority:
         1
+    shell:
+        'rm -rf {params.dname} && mkdir -p {params.dname} && mv {input} {params.dname} && tar czf {output} {params.dname} --remove-files'
+
+rule uncompress:
+    input:
+        rules.mv_compress.output[0]
+    output:
+        temp(touch('phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{fmode}.{rtype}.{assembler}.uncompressed'))
+    shell:
+        'tar xzf {input} --transform "s/fastq.gz/{wildcards.assembler}.fastq.gz/" --wildcards "*/{wildcards.rtype}/*.fastq.gz"'
+
+rule ploidy_table:
+    input:
+        archive = rules.mv_compress.output[0],
+        fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
+        kraken = 'kraken/{group}/kraken.{krtype}.report.cov.tsv',
+        depth = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam.cov.tsv.gz',
+        vcf = 'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header'
+    output:
+        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/ploidy.{fmode}.tsv.gz'
+    script:
+        'scripts/floria_ploidy_table.py'
+
+rule cluster_info_bam:
+    input:
+        archive = rules.mv_compress.output[0],
+        bam = 'kraken/{group}/split/bamfa/{tid}.{krtype}.bam'
+    output:
+        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/cluster_info.{fmode}.tsv.gz'
+    conda:
+        config['softparams']['conda']['strainberry'] # pysam
+    script:
+        'scripts/floria_cluster_info_bam.py'
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Assembly
@@ -73,62 +99,132 @@ WTDBG2PRESETS = {
     'nano': '-x preset2 -e 5 -l 1000 -L 3000 -S 1 -R'
 }
 
-rule uncompress:
+rule inference:
     input:
-        #archives = rules.prep_floria_outputs.output,
-        rtype_ar = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{rtype}.tar.gz'
+        reads_ar = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir.{fmode}.tar.gz',
+        fasta = 'kraken/{group}/split/bamfa/{tid}.{krtype}.fa',
+        vcf = 'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header.gz',
+        tab = 'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header.gz.tbi'
     output:
-        temp(touch('phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{rtype}.{assembler}.uncompressed'))
-    shell:
-        'tar xzf {input.rtype_ar} --transform "s/fastq.gz/{wildcards.assembler}.fastq.gz/"'
+        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/assembly.{fmode}.inference.none.none.fa.gz'
+    params:
+        default_ref = True,
+        add_nocov = True
+    log:
+        'logs/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.inference.log'
+    benchmark:
+        'benchmarks/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.inference.txt'
+    script:
+        'scripts/floria_run_inference.py'
 
 rule wtdbg2:
     input:
-        reads_ar = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{rtype}.tar.gz',
-        flag = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{rtype}.wtdbg2.uncompressed'
+        reads_ar = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir.{fmode}.tar.gz',
+        flag = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{fmode}.{rtype}.wtdbg2.uncompressed'
     output:
-        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/assembly.wtdbg2.{rtype}.{preset}.fa.gz'
+        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/assembly.{fmode}.wtdbg2.{rtype}.{preset}.fa.gz'
     threads:
-        utilities.get_generic_threads_split
+        config['miscs']['GENERIC_THREADS_SPLIT']
     params:
         preset = lambda wc: WTDBG2PRESETS[wc.preset]
     conda:
         config['softparams']['conda']['wtdbg2']
     log:
-        'logs/{group}/floria.split.{krtype}.{tid}.{vcaller}.{rtype}.{preset}.wtdbg2.log'
+        'logs/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.{rtype}.{preset}.wtdbg2.log'
     benchmark:
-        'benchmarks/{group}/floria.split.{krtype}.{tid}.{vcaller}.{rtype}.{preset}.wtdbg2.txt'
+        'benchmarks/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.{rtype}.{preset}.wtdbg2.txt'
     script:
         'scripts/floria_run_wtdbg2.py'
 
+rule flye:
+    input:
+        reads_ar = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir.{fmode}.tar.gz',
+        flag = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{fmode}.{rtype}.flye.uncompressed'
+    output:
+        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/assembly.{fmode}.flye.{rtype}.none.fa.gz'
+    threads:
+        config['miscs']['GENERIC_THREADS_SPLIT']
+    params:
+        kmersize = 16
+    conda:
+        config['softparams']['conda']['flye']
+    log:
+        'logs/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.{rtype}.flye.log'
+    benchmark:
+        'benchmarks/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.{rtype}.flye.txt'
+    script:
+        'scripts/floria_run_flye.py'
+
 rule abysspe:
     input:
-        reads_ar = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{rtype}.tar.gz',
-        flag = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{rtype}.abysspe.uncompressed'
+        reads_ar = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir.{fmode}.tar.gz',
+        flag = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{fmode}.{rtype}.abysspe.uncompressed'
     output:
-        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/assembly.abysspe.{rtype}.none.fa.gz'
+        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/assembly.{fmode}.abysspe.{rtype}.none.fa.gz'
     threads:
-        utilities.get_generic_threads_split
+        config['miscs']['GENERIC_THREADS_SPLIT']
     conda:
         config['softparams']['conda']['abyss']
     log:
-        'logs/{group}/floria.split.{krtype}.{tid}.{vcaller}.{rtype}.abysspe.log'
+        'logs/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.{rtype}.abysspe.log'
     benchmark:
-        'benchmarks/{group}/floria.split.{krtype}.{tid}.{vcaller}.{rtype}.abysspe.log'
+        'benchmarks/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.{rtype}.abysspe.txt'
     script:
         'scripts/floria_run_abysspe.py'
 
+rule megahit:
+    input:
+        reads_ar = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/wdir.{fmode}.tar.gz',
+        flag = 'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/floria.{fmode}.{rtype}.megahit.uncompressed'
+    output:
+        'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/assembly.{fmode}.megahit.{rtype}.none.fa.gz'
+    threads:
+        config['miscs']['GENERIC_THREADS_SPLIT']
+    conda:
+        config['softparams']['conda']['megahit']
+    log:
+        'logs/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.{rtype}.megahit.log'
+    benchmark:
+        'benchmarks/{group}/floria.{fmode}.split.{krtype}.{tid}.{vcaller}.{rtype}.megahit.txt'
+    script:
+        'scripts/floria_run_megahit.py'
+
+# ------------------------------------------------------------------------------------------------------------------------------------------
+# Merging
+
 def get_assemblies(wc):
-    with checkpoints.kr_split_list_contigs.get(** wc).output[0].open() as f:
+    with checkpoints.kr_split_fasta.get(** wc).output[0].open() as f:
         tids = [line.strip() for line in f]
 
-    return [f'phasing/floria/split/{wc.group}/{wc.krtype}/{tid}/{wc.vcaller}/assembly.{wc.assembler}.{wc.rtype}.{wc.preset}.fa.gz'
+    return [f'phasing/floria/split/{wc.group}/{wc.krtype}/{tid}/{wc.vcaller}/assembly.{wc.fmode}.{wc.assembler}.{wc.rtype}.{wc.preset}.fa.gz'
         for tid in tids]
 
 rule merge_tids_assemblies:
     input:
         get_assemblies
     output:
-        'temp/assemblies/{group}/kraken_ref.{krtype}.{vcaller}.floria.{assembler}.{rtype}.{preset}.fa'
+        'temp/assemblies/{group}/kraken_ref.{krtype}.{vcaller}.floria.{fmode}.{assembler}.{rtype}.{preset}.fa'
+    wildcard_constraints:
+        vcaller="longshot|lofreq|binocustom|freebayes",
+        rtype="long_reads|short_reads|none"
     shell:
         'zcat {input} > {output}'
+
+def get_clusters_info(wc):
+    with checkpoints.kr_split_fasta.get(** wc).output[0].open() as f:
+        tids = [line.strip() for line in f]
+
+    return [f'phasing/floria/split/{wc.group}/{wc.krtype}/{tid}/{wc.vcaller}/cluster_info.{wc.fmode}.tsv.gz'
+        for tid in tids]
+
+rule merge_cluster_infos:
+    input:
+        cinfos = get_clusters_info,
+        reads = lambda wc: utilities.get_reads(wc.group, wc.krtype)
+    output:
+        'stats/floria/{group}/kraken_ref.{krtype}.{vcaller}.floria.{fmode}.tsv.gz'
+    wildcard_constraints:
+        vcaller="longshot|lofreq|binocustom|freebayes",
+        rtype="long_reads|short_reads|none"
+    script:
+        'scripts/floria_merge_cluster_infos.py'

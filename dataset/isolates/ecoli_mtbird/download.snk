@@ -1,0 +1,108 @@
+import itertools
+import pandas as pd
+
+fname = './accessions.tsv'
+df = pd.read_csv(fname, sep='\t')
+
+nanopores = df.set_index('Isolate')['SRA accession ONT'].str.strip().to_dict()
+nanostats = [f'nanostat/nanopore/{sample}/{rid}.nanostat.txt' for sample, rid in nanopores.items()]
+nanopores = [f'nanopore/{sample}/{rid}.fastq.gz' for sample, rid in nanopores.items()]
+
+illuminas = df.set_index('Isolate')['SRA accession Illumina'].str.strip().to_dict()
+illuminas = [(f'illumina/{sample}/{rid}_1.fastq.gz', f'illumina/{sample}/{rid}_2.fastq.gz') 
+			for sample, rid in illuminas.items()]
+illuminas = itertools.chain(* illuminas)
+
+df['Genbank accession'] = df['Genbank accession'].str.strip()
+genbanks = df.groupby('Isolate')['Genbank accession'].apply(list).to_dict()
+genbanks = [f'genbank/{sample}/{gid}.fasta.gz' 
+	for sample, gids in genbanks.items()
+	for gid in gids]
+
+df['Chromsome or plasmid'] = df['Chromsome or plasmid'].str.strip()
+sdf = df[(df['Chromsome or plasmid'] == 'Chromosome') | (df['Chromsome or plasmid'] == 'Chromsome')]
+chr_gb = sdf.set_index('Isolate')['Genbank accession'].to_dict()
+
+ndata = df.set_index('Isolate')['SRA accession ONT'].str.strip().to_dict()
+ncov = [f'coverage/nanopore/{sample}/{rid}.json' for sample, rid in ndata.items()]
+
+idata = df.set_index('Isolate')['SRA accession Illumina'].str.strip().to_dict()
+icov = [f'coverage/illumina/{sample}/{rid}.json' for sample, rid in idata.items()]
+
+ # print (chr_gb)
+# print (sdf)
+
+rule all:
+	input:
+		nanopores, illuminas, genbanks, ncov, icov, nanostats
+
+rule download_nanopore:
+	output:
+		'nanopore/{sample}/{rid}.fastq.gz'
+	conda:
+		'ncbitools'
+	shell:
+		'fastq-dump --gzip --skip-technical --readids --clip --outdir nanopore/{wildcards.sample}/ {wildcards.rid}'
+
+rule download_illumina:
+	output:
+		temp('illumina/{sample}/{rid}_1.fastq.gz'),
+		temp('illumina/{sample}/{rid}_2.fastq.gz')
+	conda:
+		'ncbitools'
+	shell:
+		'fastq-dump --gzip --skip-technical --readids --clip --split-3 --outdir illumina/{wildcards.sample}/ {wildcards.rid}'
+
+rule clean_illumina_reads:
+	input:
+		'illumina/{sample}/{rid}_{ridx}.fastq.gz',
+	output:
+		'illumina/{sample}/{rid}_{ridx}.cleaned.fastq.gz'
+	script:
+		'convert_reads.py'
+
+rule download_genbank:
+	output:
+		'genbank/{sample}/{gid}.fasta.gz'
+	params:
+		fa = 'genbank/{sample}/{gid}.fasta'
+	conda:
+		'ncbitools'
+	resources:
+		ncbi_limit = 1
+	shell:
+		'efetch -db nucleotide -id "{wildcards.gid}" -mode text -format fasta | gzip > {output} &&  [[ -s {output} ]]'
+
+def get_illumina_reads(wc):
+	return [
+		f'illumina/{wc.sample}/{wc.rid}_1.cleaned.fastq.gz', 
+		f'illumina/{wc.sample}/{wc.rid}_2.cleaned.fastq.gz'
+	]
+
+rule coverage_illumina:
+	input:
+		reads = get_illumina_reads,
+		ref   = lambda wc:  f'genbank/{wc.sample}/{chr_gb[int(wc.sample)]}.fasta.gz' 
+	output:
+		'coverage/illumina/{sample}/{rid}.json'
+	script:
+		'check_coverage.py'
+
+rule coverage_nanopore:
+	input:
+		reads = rules.download_nanopore.output,
+		ref   = lambda wc:  f'genbank/{wc.sample}/{chr_gb[int(wc.sample)]}.fasta.gz' 
+	output:
+		'coverage/nanopore/{sample}/{rid}.json'
+	script:
+		'check_coverage.py'
+
+rule nanostat_nanopore:
+	input:
+		rules.download_nanopore.output
+	output:
+		'nanostat/nanopore/{sample}/{rid}.nanostat.txt'
+	conda:
+		'ncbitools'
+	shell:
+		'NanoStat --fastq {input} -o nanostat/nanopore/{wildcards.sample} -n {wildcards.rid}.nanostat.txt'

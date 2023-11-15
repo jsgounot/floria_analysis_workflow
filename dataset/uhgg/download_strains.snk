@@ -1,0 +1,77 @@
+import pandas as pd
+
+DF = None
+
+strains_list = [
+	'MGYG000000002', 'MGYG000000038',  'MGYG000000077',  'MGYG000000099',  'MGYG000000142',  
+	'MGYG000000146',  'MGYG000000195',  'MGYG000000196',  'MGYG000000212',  'MGYG000000262',  
+	'MGYG000001292',  'MGYG000001300',  'MGYG000001315',  'MGYG000001338',  'MGYG000001359',  
+	'MGYG000001378',  'MGYG000002272',  'MGYG000002279',  'MGYG000002395',  'MGYG000002396',  
+	'MGYG000002438',  'MGYG000002469',  'MGYG000002478',  'MGYG000002492',  'MGYG000002506',  
+	'MGYG000002545',  'MGYG000003452',  'MGYG000003683',  'MGYG000003899',  'MGYG000005127',  
+	'MGYG000005165',  'MGYG000005233',  'MGYG000005316',  'MGYG000005570',  'MGYG000005594',  
+	'MGYG000006035',  'MGYG000006106',  'MGYG000006146',  'MGYG000006426',  'MGYG000006533',  
+	'MGYG000006554',  'MGYG000006657',  'MGYG000006741',  'MGYG000006778',  'MGYG000006853',  
+	'MGYG000006888',  'MGYG000006932',  'MGYG000007036',  'MGYG000010975',  'MGYG000011485',  
+	'MGYG000011921',  'MGYG000013885',  'MGYG000015138',  'MGYG000015151',  'MGYG000018553',  
+	'MGYG000020051',  'MGYG000021014',  'MGYG000025754',  'MGYG000025996',  'MGYG000029665',  
+	'MGYG000032808',  'MGYG000035951',  'MGYG000037464',  'MGYG000038970',  'MGYG000041261',  
+	'MGYG000042722',  'MGYG000050633',  'MGYG000053833',  'MGYG000059649',  'MGYG000060819',  
+	'MGYG000067694',  'MGYG000067967',  'MGYG000068727',  'MGYG000070171',  'MGYG000071756',  
+	'MGYG000072213',  'MGYG000077694',  'MGYG000078292',  'MGYG000082710',  'MGYG000086726',  
+	'MGYG000087716',  'MGYG000103793',  'MGYG000112172',  'MGYG000112749',  'MGYG000120645',  
+	'MGYG000127504',  'MGYG000132626',  'MGYG000132680',  'MGYG000133141',  'MGYG000136675',  
+	'MGYG000142592',  'MGYG000143066',  'MGYG000146642',  'MGYG000146993',  'MGYG000152080',  
+	'MGYG000156166',  'MGYG000161032',  'MGYG000164526',  'MGYG000164573',  'MGYG000166196',  
+	'MGYG000170250',  'MGYG000179292',  'MGYG000185651',  'MGYG000187110',  'MGYG000195261',  
+	'MGYG000204845',  'MGYG000204911',  'MGYG000213752',  'MGYG000216666',  'MGYG000225022',  
+	'MGYG000225426',  'MGYG000232699',  'MGYG000245554',  'MGYG000252297',  'MGYG000257988',  
+	'MGYG000258696',  'MGYG000260357',  'MGYG000269216',  'MGYG000273626',  'MGYG000277300'
+]
+
+rule all:
+	input:
+		expand('strains/{strain_name}.fa.gz', strain_name=strains_list)
+
+rule download_metadata:
+	output:
+		temp('genomes-all_metadata.tsv')
+	params:
+		url = 'http://ftp.ebi.ac.uk/pub/databases/metagenomics/mgnify_genomes/human-gut/v2.0.1/genomes-all_metadata.tsv'
+	shell:
+		'wget {params.url}'
+
+rule compress_metadata:
+	input:
+		rules.download_metadata.output
+	output:
+		'genomes-all_metadata.tsv.gz'
+	shell:
+		'gzip {input}'
+
+def get_strain_url(strain_name):
+	fname = 'genomes-all_metadata.tsv.gz'
+	global DF
+	if DF is None:
+		DF = pd.read_csv(fname, sep='\t', compression='gzip')
+	sdf = DF[DF['Genome'] == strain_name]
+	assert len(sdf) == 1
+	return 'http' + list(sdf['FTP_download'])[0][3:]
+
+rule download_strain_gff:
+	input:
+		rules.compress_metadata.output
+	output:
+		'strains/{strain_name}.gff.gz'
+	params:
+		url = lambda wc: get_strain_url(wc.strain_name)
+	shell:
+		'wget -P strains {params.url}'
+
+rule gff2fa:
+	input:
+		rules.download_strain_gff.output
+	output:
+		'strains/{strain_name}.fa.gz'
+	script:
+		'gff2fa.py'

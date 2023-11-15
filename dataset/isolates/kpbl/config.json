@@ -1,0 +1,14 @@
+{
+    "Blicheniformis": {
+        "N413_barcode03": "SRR26434612",
+        "N413_barcode11": "SRR26434611",
+        "N419_barcode16": "SRR26448323",
+        "N419_barcode20": "SRR26448322"
+    },
+    "Kpneumonia": {
+        "N319_barcode04": "SRR26560745",
+        "N319_barcode12": "SRR26560746",
+        "N325_barcode01": "SRR26560747",
+        "N326_barcode18": "SRR26560748"
+    }
+}
