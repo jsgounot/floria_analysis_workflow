@@ -68,7 +68,7 @@ For multiple species, two approaches are available to generate reference sequenc
 
 ### Run configuration
 
-A configuration file is requiered to run the pipeline, and examples of configuration files can be found within the `config` folder. A description of configuration file is defined in [a dedicated markdown file]('config_desc.md').
+A configuration file is requiered to run the pipeline, and examples of configuration files can be found within the `config` folder. A description of configuration file is defined in [a dedicated markdown file](config_desc.md).
 
 ### Running the pipeline
 
