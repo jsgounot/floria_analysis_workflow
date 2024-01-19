@@ -66,7 +66,7 @@ For multiple species, two approaches are available to generate reference sequenc
 
 **Option B**: Reference species are defined using a Kraken based approach where reads are classified against a Kraken database and only species with estimated coverage higher than *n*X (default = 5X) are kept. Reads are then assigned against a unique species, based on similarity threshold; and each species is processed individually with Floria or Strainberry. More details are available within our paper.
 
-### Run configuration
+### Configuration file
 
 A configuration file is requiered to run the pipeline, and examples of configuration files can be found within the `config` folder. A description of configuration file is defined in [a dedicated markdown file](config_desc.md).
 
@@ -96,11 +96,20 @@ Some options might be useful in specific conditions
 
 #### CPU usage
 
-If benchmarking is not a concern for you, I also recommend to slightly specify more cores than what you configuration offer, fore example 50 CPUs instead of 46. Advantages are multiples: Some used softwares are only partially using all their CPU. Some rules requiere very little CPU usage but can still take some time to be completed, this avoid to have unecessary bottlenecks. Note that increasing this number too much can also lead to some weird and untracktable errors, so please be cautious. 
+If benchmarking is not a concern for you, I also recommend to slightly specify more cores than what you configuration offer, fore example 50 CPUs instead of 46. Advantages are multiples: Some used softwares are only partially using all their CPU. Some rules requiere very little CPU usage but can still take some time to be completed, this avoid to have unecessary bottlenecks. Note that increasing this number too much can also lead to some weird and untracktable errors (WTDBG2 for example), so please be cautious. 
 
-#### Benchmarking
+### Outputs
 
-Snakemake will benchmark most of the CPU intensive steps and save informations within the `benchmark` folder within your run outdir.
+Results for each main *phases* of the pipeline are saved into different folders. The main outputs are:
+* `assembly` contains the link to all prior assemblies (such as flye or megahit)
+* `phasing` contains all the phasing results, including the concatenated haplotypes 
+* `stats` contains haplotype statistics (for assessement pipelines) and circos files
+* `refcomp/*.fastani.txt` & `refcomp/*.mummer.txt` for the reference comparisons when enabled
+* `benchmarks` contains the individual benchmark of the most CPU intensive rules
+
+#### Notes on benchmarking
+
+While most processes use CPU quite efficiently, some software underuse the number of available CPUs (e.g strainberry during the longshot process, using only one CPU). This results in high CPU wall time but low CPU loading, both being provided by snakemake (respectively `cpu_time` and `mean_load`). While it is tempting to only report CPU loading, we find this metric unfair for CPU efficient softwares. For Floria's paper, we decided to use snakemake CPU wall time normalized by the number of CPU used for the specific rule. While this can't be done directly by snakemake and requires the user to remember the number of CPUs used for each rule, this value provides a more accurate representation of each rule's CPU efficiency.
 
 ### Citations
 
