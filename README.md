@@ -1,6 +1,6 @@
 ## Floria pipelines
 
-This repository contains 1) all workflows used to run and compare phasing solutions, including regular assembly software, split phasing and real reads approaches, 2) production workflow to directly run and process you metagenomic reads, and 3) all datasets used in the inital Floria paper.
+This repository contains 1) all workflows used to run and compare phasing solutions, including regular assembly software, split phasing, and real reads approaches, 2) production workflow (Floria-PL) to directly run and process your metagenomic reads, and 3) all datasets used in the initial Floria paper.
 
 ### Conda environments and software paths
 
@@ -99,7 +99,7 @@ For multiple species, two approaches are available to generate reference sequenc
 
 ### Configuration file
 
-A configuration file is requiered to run the pipeline, and examples of configuration files can be found within the `config` folder. A description of configuration file is defined in [a dedicated markdown file](config_desc.md).
+A configuration file is required to run the pipeline, and examples of configuration files can be found within the `config` folder. A description of configuration file is defined in [a dedicated markdown file](config_desc.md).
 
 ### Running the pipeline
 
@@ -201,7 +201,7 @@ Results for each main *phases* of the pipeline are saved into different folders.
 
 * `assembly` contains the link to all prior assemblies (such as flye or megahit)
 * `phasing` contains all the phasing results, including the concatenated haplotypes 
-* `stats` contains haplotype statistics (for assessement pipelines) and circos files
+* `stats` contains haplotype statistics (for assessment pipelines) and circos files
 * `refcomp/*.fastani.txt` & `refcomp/*.mummer.txt` for the reference comparisons when enabled
 * `benchmarks` contains the individual benchmark of the most CPU intensive rules
 
