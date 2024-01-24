@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2023-06-28 13:38:56
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-06-28 14:26:29
+# @Last Modified time: 2024-01-22 13:19:33
 
 import tarfile, os
 import pandas as pd
@@ -64,6 +64,9 @@ d_ambiguous = {contig: sum(cvalues) / len(cvalues) for contig, cvalues in d_ambi
 df['af_nba'] = df['contig'].map(d_nbase)
 df['af_con'] = df['contig'].map(d_confident)
 df['af_amb'] = df['contig'].map(d_ambiguous)
+
+tid = snakemake.params.get('tid', None)
+if tid: df['tid'] = tid
 
 outfile = snakemake.output[0]
 df.to_csv(outfile, sep='\t', compression='gzip', index=False)

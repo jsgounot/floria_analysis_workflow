@@ -2,14 +2,16 @@
 # @Author: jsgounot
 # @Date:   2023-08-10 14:23:06
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-11-02 16:34:42
+# @Last Modified time: 2024-01-23 09:50:48
 
 import json
 
 NAME_ATTRIBUTES = {
     'kraken_ref': ('mode', ),
+    'kraken_ref_merged': ('mode', ),
     'flye': ('read', 'mode'),
     'floria': ('readtype', 'fmode', 'post_assembler', 'assembler_rtype', 'assembler_preset'),
+    'floria_single': ('readtype', 'fmode'),
     'strainxpress': ('mode',),
     'strainberry': ('readtype',),
     'megahit': (),
@@ -18,6 +20,7 @@ NAME_ATTRIBUTES = {
 
 PHASER_REQUIREMENTS = {
     'floria': ('vcalling', 'assembly'),
+    'floria_single': ('vcalling', 'assembly'),
     'strainberry': ('assembly', )
 }
 
@@ -137,3 +140,60 @@ def parse_config(jdata, groups):
         outputs.extend(parse_refcomp(refcomp, used_groups))
 
     return outputs
+
+def parse_config_production(jdata, groups):
+    outputs = []
+
+    for param in jdata:
+        try:
+            aname, asub = parse_sub(param, 'assembly')
+        except ConfigParserError as e:
+            pname, psub = parse_sub(param, 'phasing')
+            if pname in DIRECT_READS_PHASERS:
+                aname = asub = ''
+            else:
+                raise e
+
+        if aname == 'kraken_ref':
+            pname, psub = parse_sub(param, 'phasing', True, ('readtype',))
+            pname, ssub = parse_sub(param, 'phasing', True, ('readtype', 'post_assembler', 'assembler_rtype', 'assembler_preset'))
+        else:
+            pname, psub = parse_sub(param, 'phasing', True)
+            pname, ssub = parse_sub(param, 'phasing', True, ('post_assembler', 'assembler_rtype', 'assembler_preset'))
+
+        if pname in ('floria', 'floria_single'):
+            vsub = get_raise(param, 'vcalling')
+        else:
+            vsub = ''
+
+        make_basename = lambda l, sep: sep.join(e for e in l if e)
+
+        if pname == 'floria_single':
+            psub = psub.replace('floria_single', 'floria')
+            ssub = ssub.replace('floria_single', 'floria')
+
+        group = get_raise(param, 'group')
+        used_groups = groups if group == 'all' else [group]
+        for group in used_groups:
+
+            if pname in ('floria', 'floria_single'):
+                basename = make_basename((asub, vsub, ssub), '.')
+                fname = f'results/{group}/phasing/floria/{basename}.tsv.gz'
+                outputs.append(fname)
+                
+            if pname in ('floria', 'strainberry'):
+                basename = make_basename((asub, vsub, psub), '.')
+                fname = f'results/{group}/phasing/{pname}/{basename}.fa.gz'
+                outputs.append(fname)
+
+        refcomp = param.get('refcomp', [])
+        outputs.extend(parse_refcomp(refcomp, used_groups))
+
+    return outputs
+
+'''
+phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/ploidy.{fmode}.tsv.gz
+expand('phasing/floria/presplit/{group}/nanopore/longshot/ploidy.tsv.gz', group=GROUPS),
+expand('phasing/floria/presplit/{group}/nanopore/longshot/assembly.wtdbg2.long_reads.nano.fa.gz')
+'temp/assemblies/{group}/kraken_presplit.{krtype}.{vcaller}.floria.{assembler}.{rtype}.{preset}.fa.gz'
+'''

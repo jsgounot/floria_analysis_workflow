@@ -6,7 +6,12 @@ wildcard_constraints:
     rtype="long_reads|short_reads",
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
-# Glopp
+# Floria
+
+FMODES = {
+    'fp0': '-l 100 -d 0.0001',
+    'fp1': '-l 100 -d 0.0005 -e 0.01'
+}
 
 rule floria:
     input:
@@ -16,7 +21,7 @@ rule floria:
         bai   = 'kraken/{group}/main/{krtype}.bam.bai',
         vcf   = 'vcalling/{group}/presplit/{krtype}.{vcaller}.floria_vcf_header'
     output:
-        directory('phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir/')
+        directory('phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir/{fmode}/')
     params:
         exe = utilities.get_softpath(config, 'floria')
     conda:
@@ -24,9 +29,9 @@ rule floria:
     threads:
         config['miscs']['GENERIC_THREADS']
     log:
-        'logs/{group}/floria.presplit.{krtype}.{vcaller}.log'
+        'logs/{group}/floria.{fmode}.presplit.{krtype}.{vcaller}.log'
     benchmark:
-        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.txt'
+        'benchmarks/{group}/floria.{fmode}.presplit.{krtype}.{vcaller}.txt'
     shell:
         '{params.exe} -b {input.bam} -v {input.vcf} -o {output} -t {threads} -r {input.fasta} \
             --output-reads --gzip-reads > {log}'
@@ -39,7 +44,7 @@ rule compress:
     input:
         rules.floria.output[0]
     output:
-        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz'
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.{fmode}.tar.gz'
     priority:
         1
     shell:
@@ -49,7 +54,7 @@ rule uncompress:
     input:
         rules.compress.output[0]
     output:
-        temp(touch('phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.{assembler}.uncompressed'))
+        temp(touch('phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{fmode}.{rtype}.{assembler}.uncompressed'))
     shell:
         'tar xzf {input} --transform "s/fastq.gz/{wildcards.assembler}.fastq.gz/" --wildcards "*/{wildcards.rtype}/*.fastq.gz"'
 
@@ -61,7 +66,7 @@ rule ploidy_table:
         depth = 'kraken/{group}/main/{krtype}.bam.cov.tsv.gz',
         vcf = 'vcalling/{group}/presplit/{krtype}.{vcaller}.floria_vcf_header'
     output:
-        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/ploidy.tsv.gz'
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/ploidy.{fmode}.tsv.gz'
     script:
         'scripts/floria_ploidy_table.py'
 
@@ -85,10 +90,10 @@ WTDBG2PRESETS = {
 
 rule wtdbg2:
     input:
-        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz',
+        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir..{fmode}tar.gz',
         flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.wtdbg2.uncompressed'
     output:
-        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.wtdbg2.{rtype}.{preset}.fa.gz'
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.{fmode}.wtdbg2.{rtype}.{preset}.fa.gz'
     threads:
         config['miscs']['GENERIC_THREADS']
     params:
@@ -96,18 +101,18 @@ rule wtdbg2:
     conda:
         config['softparams']['conda']['wtdbg2']
     log:
-        'logs/{group}/floria.presplit.{krtype}.{vcaller}.wtdbg2.{rtype}.{preset}.log'
+        'logs/{group}/floria.{fmode}.presplit.{krtype}.{vcaller}.wtdbg2.{rtype}.{preset}.log'
     benchmark:
-        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.wtdbg2.{rtype}.{preset}.txt'
+        'benchmarks/{group}/floria.{fmode}.presplit.{krtype}.{vcaller}.wtdbg2.{rtype}.{preset}.txt'
     script:
         'scripts/floria_run_wtdbg2.py'
 
 rule flye:
     input:
-        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz',
-        flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.flye.uncompressed'
+        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.{fmode}.tar.gz',
+        flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{fmode}.{rtype}.flye.uncompressed'
     output:
-        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.flye.{rtype}.none.fa.gz'
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.{fmode}.flye.{rtype}.none.fa.gz'
     threads:
         config['miscs']['GENERIC_THREADS']
     params:
@@ -115,9 +120,9 @@ rule flye:
     conda:
         config['softparams']['conda']['flye']
     log:
-        'logs/{group}/floria.presplit.{krtype}.{vcaller}.flye.{rtype}.none.log'
+        'logs/{group}/floria.{fmode}.presplit.{krtype}.{vcaller}.flye.{rtype}.none.log'
     benchmark:
-        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.flye.{rtype}.none.txt'
+        'benchmarks/{group}/floria.{fmode}.presplit.{krtype}.{vcaller}.flye.{rtype}.none.txt'
     script:
         'scripts/floria_run_flye.py'
 
@@ -140,25 +145,44 @@ rule abysspe:
 
 rule megahit:
     input:
-        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.tar.gz',
-        flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{rtype}.megahit.uncompressed'
+        reads_ar = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/wdir.{fmode}.tar.gz',
+        flag = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/floria.{fmode}.{rtype}.megahit.uncompressed'
     output:
-        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.megahit.{rtype}.none.fa.gz'
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.{fmode}.megahit.{rtype}.none.fa.gz'
     threads:
         config['miscs']['GENERIC_THREADS']
     conda:
         config['softparams']['conda']['megahit']
     log:
-        'logs/{group}/floria.presplit.{krtype}.{vcaller}.megahit.{rtype}.log'
+        'logs/{group}/floria.{fmode}.presplit.{krtype}.{vcaller}.megahit.{rtype}.log'
     benchmark:
-        'benchmarks/{group}/floria.presplit.{krtype}.{vcaller}.megahit.{rtype}.txt'
+        'benchmarks/{group}/floria.{fmode}.presplit.{krtype}.{vcaller}.megahit.{rtype}.txt'
     script:
         'scripts/floria_run_megahit.py'
 
 rule get_assembly:
     input:
-        fasta = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.{assembler}.{rtype}.{preset}.fa.gz'
+        fasta = 'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.{fmode}.{assembler}.{rtype}.{preset}.fa.gz'
     output:
-        temp('temp/assemblies/{group}/kraken_presplit.{krtype}.{vcaller}.floria.{assembler}.{rtype}.{preset}.fa')
+        temp('temp/assemblies/{group}/kraken_ref_merged.{krtype}.{vcaller}.floria.{fmode}.{assembler}.{rtype}.{preset}.fa')
     shell:
         'zcat {input.fasta} > {output}'
+
+# -------------------
+# Production pipeline
+
+rule link_assembly_prod:
+    input:
+        'phasing/floria/presplit/{group}/{krtype}/{vcaller}/assembly.{fmode}.{assembler}.{rtype}.{preset}.fa.gz'
+    output:
+        'results/{group}/phasing/floria/kraken_ref_merged.{krtype}.{vcaller}.floria.{fmode}.{assembler}.{rtype}.{preset}.fa.gz'
+    shell:
+        'ln -s $(pwd)/{input.fasta} {output}'
+
+rule link_ploidy_prod:
+    input:
+        rules.ploidy_table.output[0]
+    output:
+        'results/{group}/phasing/floria/kraken_ref_merged.{krtype}.{vcaller}.floria.{fmode}.tsv.gz'
+    shell:
+        'ln -s $(pwd)/{input} {output}'

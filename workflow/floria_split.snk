@@ -4,6 +4,9 @@ from scripts import utilities
 # ------------------------------------------------------------------------------------------------------------------------------------------
 # Execution
 
+# Splitted execution: Species are processed individually and not as a single reference
+# like it is done with `floria_presplit.snk` with all species'contigs merged as one ref.
+
 FMODES = {
     'fp0': '-l 100 -d 0.0001',
     'fp1': '-l 100 -d 0.0005 -e 0.01'
@@ -67,6 +70,8 @@ rule ploidy_table:
         vcf = 'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.floria_vcf_header'
     output:
         'phasing/floria/split/{group}/{krtype}/{tid}/{vcaller}/ploidy.{fmode}.tsv.gz'
+    params:
+        tid = lambda wc: wc.tid
     script:
         'scripts/floria_ploidy_table.py'
 
@@ -228,3 +233,29 @@ rule merge_cluster_infos:
         rtype="long_reads|short_reads|none"
     script:
         'scripts/floria_merge_cluster_infos.py'
+
+# -------------------
+# Production pipeline
+
+rule link_assembly_prod:
+    input:
+        get_assemblies
+    output:
+        'results/{group}/phasing/floria/kraken_ref.{krtype}.{vcaller}.floria.{fmode}.{assembler}.{rtype}.{preset}.fa.gz'
+    shell:
+        'cat {input} > {output}'
+
+def get_ploidy_files(wc):
+    with checkpoints.kr_split_fasta.get(** wc).output[0].open() as f:
+        tids = [line.strip() for line in f]
+
+    return [f'phasing/floria/split/{wc.group}/{wc.krtype}/{tid}/{wc.vcaller}/ploidy.{wc.fmode}.tsv.gz'
+        for tid in tids]
+
+rule link_ploidy_prod:
+    input:
+        get_ploidy_files
+    output:
+        'results/{group}/phasing/floria/kraken_ref.{krtype}.{vcaller}.floria.{fmode}.tsv.gz'
+    shell:
+        'cat {input} > {output}'

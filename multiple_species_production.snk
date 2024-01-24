@@ -1,19 +1,9 @@
-import os
-import json
+import os, json
 from pathlib import Path
+from workflow.scripts import configparser
+from workflow.scripts import utilities
 
-# NOT BEFORE RUNNING
-# THE ISSUE HERE IS THAT SNAKEMAKE IS EXTREMELY BAD AT HANDLING LARGE WORKFLOW WITH CONDITIONNAL
-# EXPRESSIONS SUCH AS THIS ONE. THEREFORE, MOST OF THE TIME WILL BE BE SPEND DOING NOTHING,
-# EVEN WORST, SNAKEMAKE WILL TAKE A RIDICULOUS AMOUNT OF RAM FOR NOTHING AT ALL.
-# TWO WAYS TO CIRCUMVENT THIS ISSUE:
-# 1. RUN YOUR PIPELINE MULTIPLE TIME WITH --until OPTION AND THREE OR LESS FINAL OUTPUT FILES
-# 2. RUN YOUR PIPELINE (I THINK IT WOULD WORK BUT DID NOT TEST) UNTIL CHECKPOINT RULES SUCH AS
-# run_assembly OR wtdbg2_nanopore USING --until AS WELL
-
-# --------------------------------------------------------------------------------------------------------------
-
-GROUPS = set(config)
+GROUPS = set(config['samples'])
 
 # --------------------------------------------------------------------------------------------------------------
 # SOFT & CONDA CONFIGURATION
@@ -27,15 +17,22 @@ fname = workflow.source_path('condaenvs.json')
 with open(fname) as f:
     config['softparams']['conda'] = json.load(f)
 
+config.setdefault('miscs', {})
+config['miscs'].setdefault('GENERIC_THREADS', utilities.DEFAULT_GENERIC_THREADS)
+config['miscs'].setdefault('GENERIC_THREADS_SPLIT', utilities.DEFAULT_GENERIC_THREADS_SPLIT)
+
 # ---------------------------------------------------------------------------------------------------------------
 # WORKFLOW
 
+outputs = configparser.parse_config_production(config['outputs'], GROUPS)
+
 rule all:
-    input:      
+    input:
         'logs/configuration.json',
-        expand('phasing/floria/presplit/{group}/nanopore/longshot/ploidy.tsv.gz', group=GROUPS),
-        expand('phasing/floria/presplit/{group}/nanopore/longshot/assembly.wtdbg2.long_reads.nano.fa.gz',
-            group=GROUPS)
+        outputs
+        #expand('phasing/floria/presplit/{group}/nanopore/longshot/ploidy.tsv.gz', group=GROUPS),
+        #expand('phasing/floria/presplit/{group}/nanopore/longshot/assembly.wtdbg2.long_reads.nano.fa.gz',
+        #    group=GROUPS)
 
 rule copy_config:
     output:
@@ -49,7 +46,7 @@ rule copy_config:
 
 rule msp_link_reads_illumina:
     input:
-        lambda wc: os.path.abspath(config[wc.group]['illumina'][wc.rid])
+        lambda wc: os.path.abspath(config['samples'][wc.group]['illumina'][wc.rid])
     output:
         'reads/{group}/illumina/merged/{rid}.fastq.gz'
     shell:
@@ -57,7 +54,7 @@ rule msp_link_reads_illumina:
 
 rule msp_link_reads_nanopore:
     input:
-        lambda wc: os.path.abspath(config[wc.group]['nanopore'])
+        lambda wc: os.path.abspath(config['samples'][wc.group]['nanopore'])
     output:
         'reads/{group}/nanopore/merged.fastq.gz'
     shell:

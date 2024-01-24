@@ -18,7 +18,31 @@ The json configuration file must be like:
 }
 ```
 
+**Important note**: Configuration files are divided in two categories: The **production** pipelines that can be used to process your metagenomic samples and the **assessment** pipelines which are used to generate or subsampling reads against a set of known strain genomes. Following sections make the distinction and highlight the variations, please feel free to raise a GitHub issue if you experience some trouble with configuration file.
+
 ### The samples
+
+#### Production pipeline
+
+Each first key must be a **sample** that can contain paths either to nanopore reads, and/or Illumina paired-end reads.
+
+```
+{
+	"sample_name":{
+		"nanopore": '/path/to/reads.fastq.gz'
+	}
+}
+```
+
+Sample keys:
+
+|               | Description                 | Note |
+| ------------- | --------------------------- | ---- |
+| `nanopore`    | Nanopore reads path if used |      |
+| `illumina_r1` | Illumina R1 path if used    |      |
+| `illumina_r2` | Illumina R2 path if used    |      |
+
+#### Assessment pipelines
 
 Each first key must be a **group** that should have two or more **samples** (each sample being a strain). With the exception of the production pipeline, a reference genome is requiered for each sample to be used for assessment.
 
@@ -87,16 +111,20 @@ Just one key
 
 ##### **4. Kraken approach**
 
-In this approach we defined what reference genome(s) are within your samples using Kraken against an UHGG database.
+In this approach we defined what reference genome(s) are within your samples using Kraken against a Kraken database. Two options are available for this approach: You can either split each of your reference genomes and process each of them separately. Or you can run phasing on all the contigs (multiple-species) at once. For both options, reads are classified with Kraken and a coverage estimate is calculated based on abundance and genome size. Reads are then mapped against **all** the contigs from all selected species. 
 
-| Key    | Value                    | Note |
-| ------ | ------------------------ | ---- |
-| `name` | `kraken_ref`             |      |
-| `mode` | `nanopore` or `illumina` |      |
+For option 1, reads are then assigned to the "best" contig. Contigs for each species are splitted into individual fasta and reads assigned to the species are mapped again against the species's contig(s) to recalculate mapping scores. This option is **very recommended for Strainberry** as Strainberry iterative process is unable to deal with multiple species with multiple strains. In this case, use the name `kraken_ref`.
+
+With option 2, the inital mapping file is directly processed for variant calling and phasing. Right now, only Floria is able to run efficiently such a file. Use the name `kraken_ref_merged`. Based on our experiments, option 1 is likely to provide slightly better results than option 2 but will requiere a bit more resources (the amount is relatively low compared to other parts of the process).
+
+| Key    | Value                                                | Note |
+| ------ | ---------------------------------------------------- | ---- |
+| `name` | `kraken_ref` or `kraken_ref_merged` (**see before**) |      |
+| `mode` | `nanopore` or `illumina`                             |      |
 
 ##### 5. StrainXPress
 
-While doing strains phasing, StrainXPress is defined as an assembly since it does not need any assembly to work.
+StrainXPress is both a phasing tool and an assembler, and is therefore defined as an assembler here.
 
 | Key    | Value               | Note |
 | ------ | ------------------- | ---- |
@@ -140,6 +168,10 @@ Inference post-assembler is simply infering SNPs from the VCF directly within th
 }
 ```
 
+##### 1.B Floria single [production only]
+
+You can use the name `floria_single` instead of `floria` if you want to only run Floria <u>without assembly step</u>. You can therefore ignore options `post_assembler`, `assembler_rtype` and `assembler_preset`.
+
 ##### 2. Strainberry
 
 | Key        | Value               | Note                         |
@@ -147,7 +179,7 @@ Inference post-assembler is simply infering SNPs from the VCF directly within th
 | `name`     | `strainberry`       |                              |
 | `readtype` | `nanopore` or empty | To add the `nanopore` option |
 
-#### References filtering
+#### References filtering [assessment only]
 
 A references filtering module is available to ignore phasing results from region that are too similar to each others (between reference genomes). This can be useful if you want to compare phasing results from two strains that have sections with less than X% divergence, and that would be too difficult to untangle with regular phasers. In practice, each reference genomes are pairwised compared to each other with MumMer and only regions with a certain length and similarity will be rejected.
 
@@ -165,7 +197,7 @@ A references filtering module is available to ignore phasing results from region
 }
 ```
 
-#### References comparison
+#### References comparison [assessment only]
 
 A module to easily compare your input references with either FastANI or pairwise Mummer. Can be usueful to quickly check strains / species similarity, identify potential large structural variants or regions with very high or low divergence. Can only be `mummer` or `fastani`. Results can be found within `result/dir/refcomp/{groupname}.{method}.txt`.
 
@@ -176,17 +208,81 @@ Can be used to defined specific part of the pipeline, except the `GENERIC_THREAD
 ```
 {
 	"GENERIC_THREADS": 32,
-	"GENERIC_THREADS_SPLIT": 8,
-	"FLORIA": {
-		"PRESET_NAME": "OPTIONS" 
-	},
-	"WTDBG2": {
-		"PRESET_NAME": "OPTIONS"
-	}
+	"GENERIC_THREADS_SPLIT": 8
 }
 ```
 
 ### Examples
+
+#### Production pipeline
+
+In this dummy example, we're running for one sample:
+
+1. Floria without assembly (`floria_single`) against all the references found with Kraken (`kraken_ref_merged`) at once.
+2. Floria without assembly (`floria_single`) against a metaflye assembly of the reads.
+3. Floria with the assembly of the obtained haplosets (`floria`) for each reference found with Kraken individually (`kraken_ref`).
+
+```json
+{
+    "miscs": {
+        "GENERIC_THREADS": 16,
+        "GENERIC_THREADS_SPLIT": 16
+    },
+    "outputs": [
+        {
+            "assembly": {
+                "name": "kraken_ref_merged",
+                "mode": "nanopore"
+            },
+            "group": "all",
+            "phasing": {
+                "fmode": "none",
+                "name": "floria_single",
+                "readtype": "nanopore"
+            },
+            "vcalling": "longshot"
+        },
+        {
+            "assembly": {
+                "name": "flye",
+                "read": "nanopore",
+                "mode": "raw"
+            },
+            "group": "all",
+            "phasing": {
+                "fmode": "none",
+                "name": "floria_single",
+                "readtype": "nanopore"
+            },
+            "vcalling": "longshot"
+        },
+        {
+            "assembly": {
+                "name": "kraken_ref",
+                "mode": "nanopore"
+            },
+            "group": "all",
+            "phasing": {
+                "assembler_preset": "none",
+                "assembler_rtype": "long_reads",
+                "fmode": "none",
+                "name": "floria",
+                "post_assembler": "wtdbg2",
+                "readtype": "nanopore",
+                "assembler_preset": "nano"
+            },
+            "vcalling": "longshot"
+        }
+    ],
+    "samples": {
+        "ERR7625319": {
+            "nanopore": "/download/reads/ERR7625319.fastq.gz",
+        }
+    }
+}
+```
+
+#### Assessment pipelines
 
 Generate phasing assembly with either Floria + WTDBG2, Floria + Flye or Strainberry for two communities, composed to either 3 or 2 *E. coli* strains that will be downsampled to 15 or 25X.
 
