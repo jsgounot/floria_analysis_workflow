@@ -2,6 +2,8 @@
 
 This repository contains 1) all workflows used to run and compare phasing solutions, including regular assembly software, split phasing, and real reads approaches, 2) production workflow (Floria-PL) to directly run and process your metagenomic reads, and 3) all datasets used in the initial Floria paper.
 
+Pipelines were initially built to assess our metagenomic strains phasing algorithm [Floria](https://github.com/bluenote-1577/floria).
+
 ### Conda environments and software paths
 
 #### System
