@@ -1,8 +1,8 @@
 {
 	"operams": "",
 	"hifiasm_meta": "",
-	"strainxpress": "/home/users/astar/gis/ericejs/scratch/softs/strainxpress/StrainXpress/scripts/strainxpress.py",
-	"strainberry": "/home/users/astar/gis/ericejs/scratch/softs/strainberry/fork/strainberry/strainberry",
+	"strainxpress": "",
+	"strainberry": "",
 	"floria": "floria",
-	"krakendb": "/home/users/astar/gis/ericejs/scratch/database/uhgg/201/kraken2_db_uhgg_v2.0.1"
+	"krakendb": ""
 }
