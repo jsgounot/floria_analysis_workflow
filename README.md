@@ -211,4 +211,4 @@ While most processes use CPU quite efficiently, some software underuse the numbe
 
 ### Citations
 
-TBD
+Please check our preprint on [biorxiv](https://doi.org/10.1101/2024.01.28.577669) for now.
