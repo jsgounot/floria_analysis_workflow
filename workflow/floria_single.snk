@@ -1,8 +1,9 @@
 import glob, os, json
 from scripts import utilities
 
+# This constraint the wildcards for ALL modules
 wildcard_constraints:
-    vcaller="longshot|lofreq|binocustom",
+    vcaller="longshot|lofreq|binocustom|freebayes|freebayes_ploidy_auto",
     rtype="long_reads|short_reads"
 
 # ------------------------------------------------------------------------------------------------------------------------------------------
@@ -13,6 +14,13 @@ FMODES = {
     'fp1': '-l 100 -d 0.0005 -e 0.01',
     'fp2': '-l 15000 -e 0.04 -d 0.001 -n 10'
 }
+
+def get_extra_params(preset, config):
+    user_presets = config.get('miscs', {})
+    user_presets = {key.lower(): value for key, value in user_presets.items()}
+    presets = {** FMODES, ** user_presets.get('floria_presets', {})}
+    if preset not in presets: raise Exception(f'Unable to find preset "{preset}" in the default or configuration file')
+    return presets[preset]
 
 rule floria:
     input:
@@ -25,7 +33,7 @@ rule floria:
         directory('phasing/floria/single/{group}/{refori}/{vcaller}/{gmode}/wdir/{fpreset}')
     params:
         exe = utilities.get_softpath(config, 'floria'),
-        extra_params = lambda wc: FMODES[wc.fpreset] if wc.fpreset != 'none' else ''
+        extra_params = lambda wc: get_extra_params(wc.fpreset, config) if wc.fpreset != 'none' else ''
     conda:
         config['softparams']['conda']['floria']
     threads:
@@ -50,7 +58,9 @@ rule floria_hybrid:
         directory('phasing/floria/single/{group}/{refori}/{vcaller}/hybrid/wdir/{fpreset}')
     params:
         exe = utilities.get_softpath(config, 'floria'),
-        extra_params = lambda wc: FMODES[wc.fpreset] if wc.fpreset != 'none' else ''
+        extra_params = lambda wc: get_extra_params(wc.fpreset, config) if wc.fpreset != 'none' else ''
+    conda:
+        config['softparams']['conda']['floria']
     threads:
         config['miscs']['GENERIC_THREADS']
     log:

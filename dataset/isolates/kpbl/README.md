@@ -28,5 +28,5 @@ mamba install -c conda-forge -c bioconda flye medaka
 3. Use the snakemake pipeline
 
 ```
-snakemake -s download_assemble.snk --use-conda -c {cores} -p
+snakemake -s download_assemble.snk --configfile config.json --use-conda -c {cores} -p
 ```

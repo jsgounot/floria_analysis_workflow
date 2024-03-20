@@ -93,6 +93,12 @@ module sb:
 
 use rule * from sb as sb_*
 
+module wh:
+    snakefile: "workflow/whatshap_single.snk"
+    config: config
+
+use rule * from wh as wh_*
+
 module flsi:
     snakefile: "workflow/floria_single.snk"
     config: config

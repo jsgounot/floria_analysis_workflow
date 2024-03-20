@@ -25,3 +25,19 @@ snakemake -s multiple_species_synthetic.snk --configfile configs/test_multiple_s
 ```
 
 Each test file should run in less than an hour with 48 CPUs.
+
+#### Real case configuration files
+
+**Real reads**
+
+Generat the 3 species (E. coli, B. lichenformis and K. pneumoniae) configuration. **You first need to download the reads and make assemblies** using script in the dataset folder.
+
+```
+python real_reads.py
+```
+
+You can then try to run the pipeline in the main folder:
+
+```
+snakemake -s single_species_subsampling.snk --configfile configs/real_reads.json --use-conda --conda-prefix {conda_prefix} --cores {cores} -d res/real_reads --rerun-incomplete -p --rerun-triggers mtime --scheduler greedy --keep-going
+```

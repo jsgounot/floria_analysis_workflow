@@ -1,7 +1,7 @@
 from scripts import utilities
 
 wildcard_constraints:
-    assembly="operams|flye_nanopore_raw|flye_nanopore_medaka|canu_nanopore|megahit"
+    assembly="operams|flye_nanopore_raw|flye_single_nanopore_raw|flye_nanopore_medaka|canu_nanopore|megahit"
 
 rule uncompress_long:
     input:
@@ -57,12 +57,33 @@ rule link_operams:
 # directly impact assembly output
 ESTIMATED_GENOMESIZE = '5m'
 
+rule metaflye_nanopore:
+    input:
+        'reads/{group}/nanopore/merged.fastq.gz'
+    output: 
+        outdir = directory('assembly/flye/flye/{group}/nanopore'),
+        fasta = protected('assembly/flye/flye/{group}/nanopore/assembly.fasta')
+    conda:   
+        config['softparams']['conda']['flye']
+    log:    
+        'logs/{group}/assembly.metaflye_nanopore.log'
+    benchmark:
+        'benchmarks/{group}/metaflye_nanopore.txt'
+    threads:
+        config['miscs']['GENERIC_THREADS']
+    params:
+        mgsize = ESTIMATED_GENOMESIZE
+    shell:
+        'flye --meta --keep-haplotypes --min-overlap 1000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --nano-raw {input} &> {log}'
+
+# Naming is not great but as I implement metaflye as flye first, I don't want to break name compatibility
+# across experiments
 rule flye_nanopore:
     input:
         'reads/{group}/nanopore/merged.fastq.gz'
     output: 
-        outdir = directory('assembly/flye/{group}/nanopore'),
-        fasta = protected('assembly/flye/{group}/nanopore/assembly.fasta')
+        outdir = directory('assembly/flye/flye_single/{group}/nanopore'),
+        fasta = protected('assembly/flye/flye_single/{group}/nanopore/assembly.fasta')
     conda:   
         config['softparams']['conda']['flye']
     log:    
@@ -74,23 +95,23 @@ rule flye_nanopore:
     params:
         mgsize = ESTIMATED_GENOMESIZE
     shell:
-        'flye --meta --keep-haplotypes --min-overlap 1000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --nano-raw {input} &> {log}'
+        'flye --keep-haplotypes --min-overlap 1000 --iterations 4 --genome-size {params.mgsize} --out-dir {output.outdir} --threads {threads} --nano-raw {input} &> {log}'
 
 rule link_flye_nanopore:
     input:
-        rules.flye_nanopore.output.fasta
+        'assembly/flye/{flye_mode}/{group}/nanopore/assembly.fasta'
     output:
-        'assembly/done/{group}/flye_nanopore_raw.fa'
+        'assembly/done/{group}/{flye_mode}_nanopore_raw.fa'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
 rule flye_nanopore_medaka:
     input:
-        rules.flye_nanopore.output.fasta
+        'assembly/flye/{flye_mode}/{group}/nanopore/assembly.fasta'
     output:
-        'assembly/flye/{group}/medaka/assembly.fasta'
+        'assembly/flye/{flye_mode}/{group}/medaka/assembly.fasta'
     benchmark:
-        'benchmarks/{group}/flye_medaka.txt'
+        'benchmarks/{group}/{flye_mode}_medaka.txt'
     shell:
         'tobedone'
 
@@ -98,7 +119,7 @@ rule link_flye_nanopore_medaka:
     input:
         rules.flye_nanopore_medaka.output
     output:
-        'assembly/done/{group}/flye_nanopore_medaka.fa'
+        'assembly/done/{group}/{flye_mode}_nanopore_medaka.fa'
     shell:
         'ln -s $(pwd)/{input} {output}'
 
@@ -225,11 +246,11 @@ rule hifiasm_meta_add_suffix:
     input:
         'assembly/hifiasm_meta/{group}/{model}/asm.{assembly}.fa'
     output:
-	'assembly/hifiasm_meta/{group}/{model}/asm.{assembly}_suffix.fa'
+    'assembly/hifiasm_meta/{group}/{model}/asm.{assembly}_suffix.fa'
     params:
         suffix = lambda wc: wc.basename
     script:
-        'scripts/rename_fastaids.py'	
+        'scripts/rename_fastaids.py'    
 
 rule hifiasm_meta_merge_ctg:
     input:

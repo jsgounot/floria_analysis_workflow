@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2024-01-18 15:30:28
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2024-01-18 16:39:02
+# @Last Modified time: 2024-03-11 17:00:16
 
 import os
 import json
@@ -37,7 +37,8 @@ scoverage = {
 	'MGYG000195261': 19, 'MGYG000204845': 23, 'MGYG000204911': 19, 'MGYG000213752': 7, 
 	'MGYG000216666': 5, 'MGYG000225022': 13, 'MGYG000225426': 17, 'MGYG000232699': 23, 
 	'MGYG000245554': 5, 'MGYG000252297': 8, 'MGYG000257988': 20, 'MGYG000258696': 14, 
-	'MGYG000260357': 10, 'MGYG000269216': 11, 'MGYG000273626': 22, 'MGYG000277300': 13}
+	'MGYG000260357': 10, 'MGYG000269216': 11, 'MGYG000273626': 22, 'MGYG000277300': 13
+	}
 
 wd = os.path.dirname(os.getcwd())
 

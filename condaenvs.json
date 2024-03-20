@@ -18,10 +18,11 @@
 	"lofreq": "envs/merged.yaml",
 	"strainxpress": "envs/strainxpress.yaml",
 	"strainberry": "envs/sberry.yaml",
-	"floria": "envs/merged.yaml",
+	"floria": "envs/floria.yaml",
 	"unicycler": "envs/merged.yaml",
 	"abyss": "envs/abyss.yaml",
 	"pysam": "envs/merged.yaml",
 	"kraken2": "envs/merged.yaml",
-	"freebayes": "envs/merged.yaml"
+	"freebayes": "envs/merged.yaml",
+	"whatshap": "envs/whatshap.yaml"
 }

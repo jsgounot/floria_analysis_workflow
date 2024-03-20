@@ -1,0 +1,148 @@
+from scripts import utilities
+# https://whatshap.readthedocs.io/en/latest/guide.html#recommended-workflow
+
+rule phase:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.{srtype}.bam',  
+        bai   = 'mapping/{group}/{refori}.{srtype}.bam.bai',
+        vcf   = 'vcalling/{group}/single/{refori}.{srtype}.{vcaller}.vcf.bgz',
+        tbi   = 'vcalling/{group}/single/{refori}.{srtype}.{vcaller}.vcf.bgz.tbi'
+    output:
+        temp('phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/duophased.vcf')
+    conda:
+        config['softparams']['conda']['whatshap']
+    benchmark:
+        'benchmarks/{group}/whatshap.single.{refori}.{srtype}.{vcaller}.duo.phase.txt'
+    log:
+        'logs/{group}/whatshap.single.{refori}.{srtype}.{vcaller}.duo.phase.log'   
+    shell:
+        'whatshap phase {input.vcf} {input.bam} --reference {input.fasta} -o {output} \
+         --ignore-read-groups 2> {log}'
+
+rule polyphase:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam   = 'mapping/{group}/{refori}.{srtype}.bam',  
+        bai   = 'mapping/{group}/{refori}.{srtype}.bam.bai',
+        vcf   = 'vcalling/{group}/single/{refori}.{srtype}.{vcaller}.vcf.bgz',
+        tbi   = 'vcalling/{group}/single/{refori}.{srtype}.{vcaller}.vcf.bgz.tbi'
+    output:
+        temp('phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/polyphased_{ploidy}.vcf')
+    conda:
+        config['softparams']['conda']['whatshap']
+    benchmark:
+        'benchmarks/{group}/whatshap.single.{refori}.{srtype}.{vcaller}.{ploidy}.phase..txt'
+    threads:
+        config['miscs']['GENERIC_THREADS']
+    log:
+        'logs/{group}/whatshap.single.{refori}.{srtype}.{vcaller}.{ploidy}.phase.log'   
+    shell:
+        'whatshap polyphase {input.vcf} {input.bam} --ploidy {wildcards.ploidy} \
+        --reference {input.fasta} -o {output} --threads {threads} --ignore-read-groups 2> {log}'
+
+def get_phased_vcf(wc):
+    if int(wc.ploidy) == 2:
+        return rules.phase.output
+    elif int(wc.ploidy) < 2:
+        raise Exception("Ploidy can't be under 2")
+    else:
+        return rules.polyphase.output
+
+rule bgzip_compress:
+    input:
+        get_phased_vcf
+    output:
+        'phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/phase_{ploidy}.vcf.bgz'
+    conda:
+        config['softparams']['conda']['whatshap']
+    shell:
+        'cat {input} | bgzip -c > {output}'
+
+rule bgzip_tabix:
+    input:
+        'phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/phase_{ploidy}.vcf.bgz'
+    output:
+        'phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/phase_{ploidy}.vcf.bgz.tbi'
+    conda:
+        config['softparams']['conda']['whatshap']
+    shell:
+        'tabix -p vcf {input}'
+
+rule haplotag:
+    input:
+        vcf = rules.bgzip_compress.output,
+        tbi = rules.bgzip_tabix.output,
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        bam = 'mapping/{group}/{refori}.{srtype}.bam',
+        bai = 'mapping/{group}/{refori}.{srtype}.bam.bai',
+    output:
+        'phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/phase_{ploidy}.haplotag.tsv'
+    conda:
+        config['softparams']['conda']['whatshap']
+    log:
+        'logs/{group}/whatshap.single.{refori}.{srtype}.{vcaller}.{ploidy}.haplotag.log'
+    shell:
+        '(whatshap haplotag {input.vcf} {input.bam} --reference {input.fasta} \
+         --ploidy {wildcards.ploidy} --output-haplotag-list {output} --ignore-read-groups > /dev/null) 2> {log}'
+
+def get_split_outputs(wc):
+    ploidy = int(wc.ploidy)
+    return [
+        f'phasing/whatshap/single/{wc.group}/{wc.refori}/{wc.srtype}/{wc.vcaller}/phase_{wc.ploidy}.read_h{idx}.fastq.gz'
+        for idx in range(1, ploidy + 1)
+    ]
+    
+rule split:
+    input:
+        tab = rules.haplotag.output,
+        fastq = 'reads/{group}/{srtype}/merged.fastq.gz'
+    output:
+        touch('phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/phase_{ploidy}.split.done')
+    conda:
+        config['softparams']['conda']['whatshap']
+    log:
+        'logs/{group}/whatshap.single.{refori}.{srtype}.{vcaller}.{ploidy}.haplotag.log'
+    params:
+        outputs_fmt = lambda wc: ' '.join(f'-o {output}' for output in get_split_outputs(wc))
+    shell:
+        '(whatshap split {params.outputs_fmt} {input.fastq} {input.tab} && touch {output}) 2> {log}'
+
+rule flye:
+    input:
+        rules.split.output
+    output:
+        fasta = 'phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/phase_{ploidy}.read_{hidx}.flye.{rtype}.none/assembly.fasta',
+    threads:
+        config['miscs']['GENERIC_THREADS']
+    conda:
+        config['softparams']['conda']['flye']
+    params:
+        fastq = 'phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/phase_{ploidy}.read_{hidx}.fastq.gz',
+        kmersize = 16,
+        wdir = 'phasing/whatshap/single/{group}/{refori}/{srtype}/{vcaller}/phase_{ploidy}.read_{hidx}.flye.{rtype}.none/'
+    log:
+        'logs/{group}/whatshap.single.{refori}.{srtype}.{vcaller}.{ploidy}.{hidx}.{rtype}.flye.none.log'
+    benchmark:
+        'benchmarks/{group}/whatshap.single.{refori}.{srtype}.{vcaller}.{ploidy}.{hidx}.{rtype}.flye.none.txt'
+    shell:
+        '(flye --out-dir {params.wdir} --threads {threads} --nano-raw {params.fastq} \
+         --extra-params kmer_size={params.kmersize} 2> {log}) || touch {output}'
+
+def gather_fasta(wc):
+    ploidy = utilities.infer_vcalling_ploidy(config, wc)
+    return [
+        f'phasing/whatshap/single/{{group}}/{{refori}}/{{srtype}}/{{vcaller}}/phase_{ploidy}.read_h{idx}.flye.{{rtype}}.none/assembly.fasta'
+        for idx in range(1, int(ploidy) + 1)
+    ]
+
+rule merge_fasta:
+    input:
+        gather_fasta
+    output: 
+        temp('temp/assemblies/{group}/{refori}.{vcaller}.whatshap.{srtype}.{assembler}.{rtype}.{preset}.fa')
+    script:
+        'scripts/whatshap_merge_fasta.py'

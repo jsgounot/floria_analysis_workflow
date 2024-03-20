@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2023-08-10 14:23:06
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2024-01-23 09:50:48
+# @Last Modified time: 2024-03-14 13:56:36
 
 import json
 
@@ -10,8 +10,9 @@ NAME_ATTRIBUTES = {
     'kraken_ref': ('mode', ),
     'kraken_ref_merged': ('mode', ),
     'flye': ('read', 'mode'),
+    'flye_single': ('read', 'mode'),
     'floria': ('readtype', 'fmode', 'post_assembler', 'assembler_rtype', 'assembler_preset'),
-    'floria_single': ('readtype', 'fmode'),
+    'whatshap': ('readtype', 'post_assembler', 'assembler_rtype', 'assembler_preset'),
     'strainxpress': ('mode',),
     'strainberry': ('readtype',),
     'megahit': (),
@@ -20,12 +21,12 @@ NAME_ATTRIBUTES = {
 
 PHASER_REQUIREMENTS = {
     'floria': ('vcalling', 'assembly'),
-    'floria_single': ('vcalling', 'assembly'),
+    'whatshap': ('vcalling', 'assembly'),
     'strainberry': ('assembly', )
 }
 
 UNDERSCORE_SEP = (
-    'flye',
+    'flye', 'flye_single'
     )
 
 DIRECT_READS_PHASERS = (
@@ -119,7 +120,7 @@ def parse_config(jdata, groups):
         else:
             pname, psub = parse_sub(param, 'phasing', True)
 
-        if pname in ('floria', ):
+        if pname in ('floria', 'whatshap'):
             vsub = get_raise(param, 'vcalling')
         else:
             vsub = ''
@@ -161,7 +162,7 @@ def parse_config_production(jdata, groups):
             pname, psub = parse_sub(param, 'phasing', True)
             pname, ssub = parse_sub(param, 'phasing', True, ('post_assembler', 'assembler_rtype', 'assembler_preset'))
 
-        if pname in ('floria', 'floria_single'):
+        if pname in ('floria', 'floria_single', 'whatshap'):
             vsub = get_raise(param, 'vcalling')
         else:
             vsub = ''
@@ -181,7 +182,7 @@ def parse_config_production(jdata, groups):
                 fname = f'results/{group}/phasing/floria/{basename}.tsv.gz'
                 outputs.append(fname)
                 
-            if pname in ('floria', 'strainberry'):
+            if pname in ('floria', 'strainberry', 'whatshap'):
                 basename = make_basename((asub, vsub, psub), '.')
                 fname = f'results/{group}/phasing/{pname}/{basename}.fa.gz'
                 outputs.append(fname)

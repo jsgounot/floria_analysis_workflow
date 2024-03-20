@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2022-04-01 17:34:35
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2023-11-14 11:06:43
+# @Last Modified time: 2024-03-14 14:39:11
 
 DEFAULT_GENERIC_THREADS = 32
 DEFAULT_GENERIC_THREADS_SPLIT = 16
@@ -104,3 +104,23 @@ def get_softpath(config, softname):
     if softpath == '':
         print (f'WARNING: Softpath for soft name {softname} is currently empty. Please add it to your softpaths.json if you plan to use it.')
     return softpath
+
+def get_vcalling_ploidy(config, wc, ploidy=None):
+    ploidy = ploidy or wc.ploidy
+    if ploidy == 'auto':
+        ploidy = len(config['samples'][wc.group])
+
+    try:
+        int(ploidy)
+    except ValueError:
+        raise Exception(f'Ploidy "{ploidy}" cannot be converted to integer')
+
+    if int(ploidy) > 5:
+        print (f'Warning, ploidy for variants calling is higher than 5 ("{ploidy}"), are you sure?')
+
+    return ploidy
+
+def infer_vcalling_ploidy(config, wc):
+    # infer vcalling ploidy from sample group name
+    ploidy = wc.vcaller.split('_')[-1]
+    return get_vcalling_ploidy(config, wc, ploidy)

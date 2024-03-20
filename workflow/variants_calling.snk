@@ -1,3 +1,5 @@
+from scripts import utilities
+
 rule clean_fasta:
     input:
         'references/used/{group}/refmap/{refori}.fa'
@@ -51,8 +53,8 @@ rule longshot:
 
 rule freebayes:
     input:
-        fasta = 'references/used/{group}/refmap/{refori}.clean.fa',
-        fai   = 'references/used/{group}/refmap/{refori}.clean.fa.fai',
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
         aln   = 'mapping/{group}/{refori}.{readtype}.bam',
         bai   = 'mapping/{group}/{refori}.{readtype}.bam.bai'
     output:
@@ -64,7 +66,33 @@ rule freebayes:
     benchmark:
         'benchmarks/{group}/vcalling.{refori}.{readtype}.freebayes.txt'
     shell:
-        'freebayes -f {input.fasta} --pooled-continuous -F 0.01 -C 1 --pooled-continuous {input.aln} > {output}'
+        'freebayes -f {input.fasta} -F 0.01 -C 1 --pooled-continuous {input.aln} > {output}'
+
+# based on this: https://groups.google.com/g/freebayes/c/AGBvsqZIxE4
+# running freebayes on a single CPU is really slow
+rule freebayes_ploidy_parallel:
+    input:
+        fasta = 'references/used/{group}/refmap/{refori}.fa',
+        fai   = 'references/used/{group}/refmap/{refori}.fa.fai',
+        aln   = 'mapping/{group}/{refori}.{readtype}.bam',
+        bai   = 'mapping/{group}/{refori}.{readtype}.bam.bai'
+    output:
+        'vcalling/{group}/single/{refori}.{readtype}.freebayes_ploidy_{ploidy}.vcf'
+    params:
+        region_size = 5000,
+        ploidy = lambda wc: utilities.get_vcalling_ploidy(config, wc)
+    conda:
+        config['softparams']['conda']['freebayes']
+    log:
+        'logs/{group}/vcalling.{refori}.{readtype}.freebayes_ploidy_{ploidy}.log'
+    benchmark:
+        'benchmarks/{group}/vcalling.{refori}.{readtype}.freebayes_ploidy_{ploidy}.txt'
+    threads:
+        config['miscs']['GENERIC_THREADS']
+    # -F 0.01 -C 1 leads to too much memory at high ploidy
+    shell:
+        'freebayes-parallel <(fasta_generate_regions.py {input.fasta} {params.region_size}) {threads}\
+         -f {input.fasta} -p {params.ploidy} {input.aln} > {output}' 
 
 rule binomial_custom:
     input:
@@ -83,7 +111,7 @@ rule binomial_custom:
     script:
         'scripts/vcalling_binocustom.py'
 
-rule vcaller_gzip:
+rule single_gzip:
     input:
         'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.vcf'
     output:
@@ -91,9 +119,29 @@ rule vcaller_gzip:
     shell:
         'gzip {input}'
 
+rule single_bgzip:
+    input:
+        'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.vcf'
+    output:
+        'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.vcf.bgz'
+    conda:
+        config['softparams']['conda']['pysam']
+    shell:
+        'cat {input} | bgzip -c > {output}'
+
+rule single_bgzip_tabix:
+    input:
+        'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.vcf.bgz'
+    output:
+        'vcalling/{group}/single/{refori}.{readtype}.{vcaller}.vcf.bgz.tbi'
+    conda:
+        config['softparams']['conda']['pysam']
+    shell:
+        ' tabix -p vcf {input}'
+
 rule floria_add_header:
     input:
-        rules.vcaller_gzip.output[0]
+        rules.single_gzip.output[0]
     output:
         temp('vcalling/{group}/single/{refori}.{readtype}.{vcaller}.floria_vcf_header')
     script:
@@ -168,7 +216,7 @@ use rule freebayes as freebayes_presplit with:
     benchmark:
         'benchmarks/{group}/presplit/vcalling.{krtype}.freebayes.txt'
 
-use rule vcaller_gzip as vcaller_gzip_presplit with:
+use rule single_gzip as vcaller_gzip_presplit with:
     input:
         'vcalling/{group}/presplit/{krtype}.{vcaller}.vcf'
     output:
@@ -235,7 +283,7 @@ use rule freebayes as freebayes_split with:
     benchmark:
         'benchmarks/{group}/split/vcalling.{tid}.{krtype}.freebayes.txt'
 
-use rule vcaller_gzip as vcaller_gzip_split with:
+use rule single_gzip as vcaller_gzip_split with:
     input:
         'vcalling/{group}/split/{tid}.{krtype}.{vcaller}.vcf'
     output:
