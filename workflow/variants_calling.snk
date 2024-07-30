@@ -180,7 +180,7 @@ use rule lofreq as lofreq_presplit with:
     input:
         fasta = 'kraken/{group}/ref.{krtype}.fa',
         fai   = 'kraken/{group}/ref.{krtype}.fa.fai',
-        aln   = 'kraken/{group}/main/{krtype}.filtered.bam',
+        aln   = 'kraken/{group}/main/{krtype}.bam',
     output:
         'vcalling/{group}/presplit/{krtype}.lofreq.vcf'
     conda:

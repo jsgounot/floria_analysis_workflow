@@ -2,7 +2,7 @@
 # @Author: jsgounot
 # @Date:   2023-08-10 14:23:06
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2024-03-14 13:56:36
+# @Last Modified time: 2024-07-30 10:45:50
 
 import json
 
@@ -12,6 +12,7 @@ NAME_ATTRIBUTES = {
     'flye': ('read', 'mode'),
     'flye_single': ('read', 'mode'),
     'floria': ('readtype', 'fmode', 'post_assembler', 'assembler_rtype', 'assembler_preset'),
+    'floria_single': ('readtype', 'fmode'),
     'whatshap': ('readtype', 'post_assembler', 'assembler_rtype', 'assembler_preset'),
     'strainxpress': ('mode',),
     'strainberry': ('readtype',),

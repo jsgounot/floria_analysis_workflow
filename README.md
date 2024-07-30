@@ -67,7 +67,7 @@ Here is an example of the configuration file you can use:
 }
 ```
 
-Please check [the related section in the configuration files guide](config_desc.md#variant-calling) for more information.
+Please check [the related section in the configuration files guide](config_desc.md#variant-calling) for more information and other example configuration files (including one for production with Illumina reads).
 
 ### Simulation and assessment pipelines
 

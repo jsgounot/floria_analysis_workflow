@@ -2,10 +2,11 @@
 # @Author: jsgounot
 # @Date:   2023-06-28 13:38:56
 # @Last Modified by:   jsgounot
-# @Last Modified time: 2024-01-22 13:19:33
+# @Last Modified time: 2024-07-30 12:45:50
 
 import tarfile, os
 import pandas as pd
+import numpy as np
 from collections import defaultdict
 from Bio import SeqIO
 
@@ -45,15 +46,18 @@ df = df.merge(ddf, on='contig', how='left')
 d_confident = defaultdict(list)
 d_ambiguous = defaultdict(list)
 
+getinfo = lambda info, name: float(info.get(name, np.nan))
+
 with open(vcf, 'r') as f:
 	for line in f:
 		if line.startswith('#'): continue
 		line = line.strip().split('\t')
 		contig, info = line[0], line[7]
+		if info == '.': continue
 		info = dict(e.split('=') for e in info.split(';') if e)
-		info['AC'] = info['AC'].split(',')[1]
+		info['AC'] = info['AC'].split(',')[1] if 'AC' in info else np.nan
 
-		DP, AC, AM = int(info['DP']), int(info['AC']), int(info['AM'])
+		DP, AC, AM = getinfo(info, 'DP'), getinfo(info, 'AC'), getinfo(info, 'AM')
 		d_confident[contig].append(AC / (DP - AM))
 		d_ambiguous[contig].append(AC / DP)
 

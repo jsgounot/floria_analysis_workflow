@@ -44,11 +44,19 @@ rule copy_config:
 
 # ----------------------------------------------------------------------------------------------------------------
 
-rule msp_link_reads_illumina:
+rule msp_link_reads_illumina_r1:
     input:
-        lambda wc: os.path.abspath(config['samples'][wc.group]['illumina'][wc.rid])
+        lambda wc: os.path.abspath(config['samples'][wc.group]['illumina_r1'])
     output:
-        'reads/{group}/illumina/merged/{rid}.fastq.gz'
+        'reads/{group}/illumina/merged/R1.fastq.gz'
+    shell:
+        'ln -s {input} {output}'
+
+rule msp_link_reads_illumina_r2:
+    input:
+        lambda wc: os.path.abspath(config['samples'][wc.group]['illumina_r2'])
+    output:
+        'reads/{group}/illumina/merged/R2.fastq.gz'
     shell:
         'ln -s {input} {output}'
 

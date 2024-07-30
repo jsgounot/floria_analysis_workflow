@@ -282,6 +282,41 @@ In this dummy example, we're running for one sample:
 }
 ```
 
+The next production configuration file is designed for Illumina reads. Notable differences are using megahit as post-phasing assembler and lofreq as variant caller. Note that you can also remove `post_assembler` with `assembler_preset` and `assembler_rtype` to ignore the post-assembly process.
+
+```json
+{
+    "miscs": {
+        "GENERIC_THREADS": 16,
+        "GENERIC_THREADS_SPLIT": 16
+    },
+    "outputs": [
+        {
+            "assembly": {
+                "name": "kraken_ref",
+                "mode": "illumina"
+            },
+            "group": "all",
+            "phasing": {
+                "assembler_preset": "none",
+                "assembler_rtype": "short_reads",
+                "fmode": "none",
+                "name": "floria",
+                "post_assembler": "megahit",
+                "readtype": "illumina"
+            },
+            "vcalling": "lofreq"
+        }
+    ],
+    "samples": {
+        "SampleName1": {
+            "illumina_r1": "/path/to/reads.1.fastq.gz",
+            "illumina_r2": "/path/to/reads.2.fastq.gz"
+        }
+    }
+}
+```
+
 #### Assessment pipelines
 
 Generate phasing assembly with either Floria + WTDBG2, Floria + Flye or Strainberry for two communities, composed to either 3 or 2 *E. coli* strains that will be downsampled to 15 or 25X.
