@@ -216,11 +216,10 @@ Can be used to defined specific part of the pipeline, except the `GENERIC_THREAD
 
 #### Production pipeline
 
-In this dummy example, we're running for one sample:
+In this <u>dummy</u> example (you probably want only one of these), we're running for the same sample:
 
 1. Floria without assembly (`floria_single`) against all the references found with Kraken (`kraken_ref_merged`) at once.
 2. Floria without assembly (`floria_single`) against a metaflye assembly of the reads.
-3. Floria with the assembly of the obtained haplosets (`floria`) for each reference found with Kraken individually (`kraken_ref`).
 
 ```json
 {
@@ -253,23 +252,6 @@ In this dummy example, we're running for one sample:
                 "fmode": "none",
                 "name": "floria_single",
                 "readtype": "nanopore"
-            },
-            "vcalling": "longshot"
-        },
-        {
-            "assembly": {
-                "name": "kraken_ref",
-                "mode": "nanopore"
-            },
-            "group": "all",
-            "phasing": {
-                "assembler_preset": "none",
-                "assembler_rtype": "long_reads",
-                "fmode": "none",
-                "name": "floria",
-                "post_assembler": "wtdbg2",
-                "readtype": "nanopore",
-                "assembler_preset": "nano"
             },
             "vcalling": "longshot"
         }

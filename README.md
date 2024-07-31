@@ -36,7 +36,7 @@ If you plan to use the kraken classification approach to identify reference sequ
 
 If you want to process your metagenomic samples, please use `multiple_species_production.snk`.
 
-Here is an example of the configuration file you can use:
+Here is an example of the configuration file:
 
 ```json
 {
@@ -66,6 +66,8 @@ Here is an example of the configuration file you can use:
     }
 }
 ```
+
+With this configuration file, snakemake will 1. Identify the reference genomes using the kraken mapping approach (`kraken_ref`) on all samples (`all`), call SNPs using `longshot`, run `floria` on long reads and assemble haplotypes using `wtdbg2`.
 
 Please check [the related section in the configuration files guide](config_desc.md#variant-calling) for more information and other example configuration files (including one for production with Illumina reads).
 
