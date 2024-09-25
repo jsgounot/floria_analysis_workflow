@@ -117,7 +117,7 @@ I recommend some other options:
 
 * `--conda-prefix {absolute_path}` to root your conda environment within a specific folder.
 * `--attempt 2` to be sure that random errors (for example memory) does not make your whole pipeline crash
-* ` --resources ncbi_load=1` to ensure that you limit requests against NCBI server (**important**)
+* `--resources ncbi_load=1` to ensure that you limit requests against NCBI server (**important**)
 * `--rerun-incomplete` to rerun rules that might have failed before
 * `--rerun-triggers mtime` to avoid to unnecessary rerun some samples
 * `--scheduler greedy` do not use the usual DAG scheduler, can make your pipeline to execute faster
@@ -215,4 +215,4 @@ While most processes use CPU quite efficiently, some software underuse the numbe
 
 ### Citations
 
-Please check our preprint on [biorxiv](https://doi.org/10.1101/2024.01.28.577669) for now.
+Please cite our paper on [bioinformatic](https://academic.oup.com/bioinformatics/article/40/Supplement_1/i30/7700908).
